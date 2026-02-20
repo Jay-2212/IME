@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Onboarding Step 3 — Keyboard Enable (TSD Section 2.1 Step 3).
+    Shows animated guide + test EditText after user enables the keyboard.
+-->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="@dimen/onboarding_padding">
+
+    <!-- Headline -->
+    <TextView
+        android:id="@+id/tv_enable_headline"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="@string/keyboard_enable_headline"
+        android:textColor="@color/text_primary"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintVertical_bias="0.1"
+        app:layout_constraintBottom_toTopOf="@id/lottie_keyboard_guide" />
+
+    <!-- Lottie animation placeholder for keyboard setup guide (TSD Section 2.1) -->
+    <com.airbnb.lottie.LottieAnimationView
+        android:id="@+id/lottie_keyboard_guide"
+        android:layout_width="0dp"
+        android:layout_height="200dp"
+        android:layout_marginTop="16dp"
+        app:lottie_autoPlay="true"
+        app:lottie_loop="true"
+        app:lottie_rawRes="@raw/keyboard_setup_animation"
+        app:layout_constraintTop_toBottomOf="@id/tv_enable_headline"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/tv_enable_subtitle"
+        tools:background="@color/surface_variant" />
+
+    <!-- Step instructions -->
+    <TextView
+        android:id="@+id/tv_enable_subtitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:text="@string/keyboard_enable_subtitle"
+        android:textColor="@color/disabled"
+        android:textSize="@dimen/text_body"
+        app:layout_constraintTop_toBottomOf="@id/lottie_keyboard_guide"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/tv_enabled_status" />
+
+    <!-- Enabled status indicator -->
+    <TextView
+        android:id="@+id/tv_enabled_status"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:textSize="@dimen/text_label"
+        app:layout_constraintTop_toBottomOf="@id/tv_enable_subtitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/et_test_area"
+        tools:text="GroqVoice is not yet enabled" />
+
+    <!-- Test text area (TSD Section 2.1 Step 3) -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/et_test_area"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:hint="@string/test_area_hint"
+        app:boxStrokeColor="@color/accent_secondary"
+        app:hintTextColor="@color/disabled"
+        app:layout_constraintTop_toBottomOf="@id/tv_enabled_status"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/btn_open_keyboard_settings">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text"
+            android:textColor="@color/text_primary" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Open keyboard settings button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_open_keyboard_settings"
+        style="@style/Widget.GroqVoiceKeyboard.PrimaryButton"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/onboarding_button_height"
+        android:layout_marginBottom="16dp"
+        android:text="@string/btn_open_keyboard_settings"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

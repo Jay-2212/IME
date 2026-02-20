@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    IME input method declaration.
+    Tells the Android system about keyboard capabilities and subtypes.
+    Referenced from AndroidManifest.xml via meta-data tag.
+-->
+<input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="com.groqvoice.keyboard.ui.settings.SettingsActivity"
+    android:supportsSwitchingToNextInputMethod="true">
+
+    <!-- English subtype -->
+    <subtype
+        android:label="@string/subtype_en_US"
+        android:imeSubtypeLocale="en_US"
+        android:imeSubtypeMode="keyboard"
+        android:isDefault="true" />
+
+</input-method>

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App -->
+    <string name="app_name">GroqVoice Keyboard</string>
+    <string name="ime_name">GroqVoice</string>
+    <string name="subtype_en_US">English (US)</string>
+
+    <!-- Onboarding — Step 1: Welcome (TSD Section 2.1) -->
+    <string name="welcome_headline">Fast voice typing, powered by Groq AI</string>
+    <string name="welcome_subtitle">GroqVoice enables lightning-fast voice typing powered by Groq\'s Whisper transcription.</string>
+    <string name="btn_get_started">Get Started</string>
+    <string name="permission_audio_rationale">Microphone access is required to record your voice for transcription.</string>
+    <string name="permission_notification_rationale">Notification permission is required to show hands-free recording status.</string>
+
+    <!-- Onboarding — Step 2: API Key (TSD Section 2.1) -->
+    <string name="api_key_headline">Enter your Groq API Key</string>
+    <string name="api_key_hint">gsk_…</string>
+    <string name="api_key_help_link">Where do I find this?</string>
+    <string name="api_key_validating">Validating key…</string>
+    <string name="api_key_valid">API key is valid ✓</string>
+    <string name="api_key_error_format">Invalid format. Key must start with gsk_ followed by 40+ characters.</string>
+    <string name="api_key_error_unauthorized">Unauthorized. Please check your key on console.groq.com.</string>
+    <string name="api_key_error_network">Network error. Please check your connection.</string>
+    <string name="btn_validate_and_continue">Validate &amp; Continue</string>
+
+    <!-- Onboarding — Step 3: Keyboard Enable (TSD Section 2.1) -->
+    <string name="keyboard_enable_headline">Enable GroqVoice Keyboard</string>
+    <string name="keyboard_enable_subtitle">Open Settings → General Management → Languages &amp; Input → On-screen keyboard.</string>
+    <string name="btn_open_keyboard_settings">Open Keyboard Settings</string>
+    <string name="keyboard_enabled_status">GroqVoice is enabled ✓</string>
+    <string name="keyboard_not_enabled_status">GroqVoice is not yet enabled</string>
+    <string name="test_area_hint">Tap here and switch to GroqVoice to try it out…</string>
+
+    <!-- Keyboard View (TSD Section 3.2) -->
+    <string name="key_mic_description">Voice input — hold for push-to-talk, tap for hands-free</string>
+    <string name="key_backspace_description">Backspace</string>
+    <string name="key_space_description">Space</string>
+    <string name="transcription_preview_placeholder">Tap mic to start…</string>
+
+    <!-- Keyboard State Labels (TSD Section 3.2) -->
+    <string name="state_idle">Ready</string>
+    <string name="state_recording">Recording…</string>
+    <string name="state_processing">Processing…</string>
+    <string name="state_hands_free">Hands-Free Active</string>
+    <string name="state_error">Error — tap to retry</string>
+
+    <!-- Contextual banners (TSD Section 2.2) -->
+    <string name="banner_no_api_key">Tap to configure API key</string>
+    <string name="banner_no_network">No network — will retry when connected</string>
+    <string name="banner_quota_exceeded">Quota exceeded — upgrade your Groq plan</string>
+    <string name="banner_no_speech">No speech detected</string>
+    <string name="banner_speak_softer">Please speak softer</string>
+    <string name="banner_voice_disabled_security">Voice typing disabled for security in this field</string>
+    <string name="banner_incognito_warning">Incognito mode — audio will not be sent to cloud</string>
+
+    <!-- Tooltips (TSD Section 2.2) -->
+    <string name="tooltip_mic">Hold to record • Tap for hands-free</string>
+    <string name="tooltip_space_backspace">Standard controls available</string>
+    <string name="tooltip_settings">Change API key or model</string>
+
+    <!-- Settings (TSD Section 1.2) -->
+    <string name="settings_title">GroqVoice Settings</string>
+    <string name="pref_category_api">Groq API</string>
+    <string name="pref_api_key_title">API Key</string>
+    <string name="pref_api_key_summary">Stored securely with encryption</string>
+    <string name="pref_model_title">Transcription Model</string>
+    <string name="pref_model_summary">Select the Whisper model variant</string>
+    <string name="pref_category_recording">Recording</string>
+    <string name="pref_double_tap_period_title">Double-tap space for period</string>
+    <string name="pref_double_tap_period_summary">Insert \". \" when space is tapped twice quickly</string>
+    <string name="pref_haptic_title">Haptic feedback</string>
+    <string name="pref_haptic_summary">Vibrate on key press and state changes</string>
+    <string name="pref_category_privacy">Privacy</string>
+    <string name="pref_clear_log_title">Clear transcription log</string>
+    <string name="pref_clear_log_summary">Deletes local timestamps (no audio content stored)</string>
+    <string name="pref_privacy_policy_title">Privacy Policy</string>
+
+    <!-- Model list labels -->
+    <string-array name="groq_models">
+        <item>Whisper Large V3 Turbo (Recommended)</item>
+        <item>Whisper Large V3</item>
+        <item>Distil-Whisper Large V3 EN</item>
+    </string-array>
+    <string-array name="groq_model_values">
+        <item>whisper-large-v3-turbo</item>
+        <item>whisper-large-v3</item>
+        <item>distil-whisper-large-v3-en</item>
+    </string-array>
+
+    <!-- Errors / generic -->
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="error_rate_limit">Too many requests. Retrying in %1$d seconds…</string>
+    <string name="error_file_too_large">Recording too long. Please keep recordings under 5 minutes.</string>
+    <string name="error_audio_hardware">Microphone unavailable. Please check app permissions.</string>
+</resources>

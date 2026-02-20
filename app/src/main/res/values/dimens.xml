@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dimensions — TSD Section 3.1 -->
+
+    <!-- Keyboard -->
+    <dimen name="keyboard_height">280dp</dimen>
+    <dimen name="keyboard_padding_horizontal">16dp</dimen>
+    <dimen name="keyboard_padding_vertical">20dp</dimen>
+
+    <!-- Mic button -->
+    <dimen name="mic_button_diameter">120dp</dimen>
+    <dimen name="mic_icon_size">72dp</dimen>
+    <dimen name="mic_button_elevation">8dp</dimen>
+
+    <!-- Key corners -->
+    <dimen name="key_corner_radius">24dp</dimen>
+
+    <!-- Bottom row keys -->
+    <dimen name="key_backspace_width">60dp</dimen>
+    <dimen name="key_spacebar_width">200dp</dimen>
+    <dimen name="key_height">52dp</dimen>
+
+    <!-- Transcription preview strip -->
+    <dimen name="transcription_preview_height">48dp</dimen>
+
+    <!-- Typography -->
+    <dimen name="text_label">14sp</dimen>
+    <dimen name="text_body">16sp</dimen>
+    <dimen name="text_headline">24sp</dimen>
+
+    <!-- Onboarding -->
+    <dimen name="onboarding_padding">32dp</dimen>
+    <dimen name="onboarding_button_height">56dp</dimen>
+    <dimen name="onboarding_button_corner_radius">28dp</dimen>
+</resources>
