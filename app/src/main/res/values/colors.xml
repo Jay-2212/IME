@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Design system colors — TSD Section 3.1 -->
+    <color name="keyboard_background">#1A1A2E</color>
+    <color name="accent_primary">#E94560</color>   <!-- Recording state (Coral Red) -->
+    <color name="accent_secondary">#0F3460</color> <!-- Idle state (Dark Blue) -->
+    <color name="text_primary">#EAEAEA</color>      <!-- Off-white -->
+    <color name="disabled">#4A4A6A</color>          <!-- Muted purple (Processing/Disabled) -->
+
+    <!-- Onboarding gradient -->
+    <color name="gradient_start">#4A0E8F</color>   <!-- Deep Purple -->
+    <color name="gradient_end">#1565C0</color>     <!-- Blue -->
+
+    <!-- Surface / card backgrounds -->
+    <color name="surface">#16213E</color>
+    <color name="surface_variant">#0D1B3E</color>
+
+    <!-- Status / semantic colors -->
+    <color name="error">#CF6679</color>
+    <color name="success">#4CAF50</color>
+    <color name="warning">#FF9800</color>
+
+    <!-- Key button backgrounds -->
+    <color name="key_background">#0F3460</color>
+    <color name="key_background_pressed">#E94560</color>
+    <color name="key_text">#EAEAEA</color>
+</resources>

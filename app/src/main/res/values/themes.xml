@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base app theme -->
+    <style name="Theme.GroqVoiceKeyboard" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/accent_primary</item>
+        <item name="colorPrimaryVariant">@color/accent_secondary</item>
+        <item name="colorOnPrimary">@color/text_primary</item>
+        <item name="colorSecondary">@color/accent_secondary</item>
+        <item name="colorOnSecondary">@color/text_primary</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="android:colorBackground">@color/keyboard_background</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:windowBackground">@color/keyboard_background</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.GroqVoiceKeyboard.MediumComponent</item>
+    </style>
+
+    <!-- Onboarding theme (full-screen, gradient background handled in code) -->
+    <style name="Theme.GroqVoiceKeyboard.Onboarding" parent="Theme.GroqVoiceKeyboard">
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowTranslucentStatus">true</item>
+    </style>
+
+    <!-- Settings theme -->
+    <style name="Theme.GroqVoiceKeyboard.Settings" parent="Theme.GroqVoiceKeyboard">
+        <item name="android:windowActionBar">false</item>
+    </style>
+
+    <!-- Shape appearance for rounded components (TSD Section 3.1 — 24dp corner radius) -->
+    <style name="ShapeAppearance.GroqVoiceKeyboard.MediumComponent" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerSize">@dimen/key_corner_radius</item>
+    </style>
+
+    <!-- Mic button style — base -->
+    <style name="Widget.GroqVoiceKeyboard.MicButton" parent="Widget.MaterialComponents.FloatingActionButton">
+        <item name="backgroundTint">@color/accent_secondary</item>
+        <item name="tint">@color/text_primary</item>
+        <item name="elevation">@dimen/mic_button_elevation</item>
+        <item name="maxImageSize">@dimen/mic_icon_size</item>
+    </style>
+
+    <!-- Primary action button (onboarding) -->
+    <style name="Widget.GroqVoiceKeyboard.PrimaryButton" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/accent_primary</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="cornerRadius">@dimen/onboarding_button_corner_radius</item>
+        <item name="android:minHeight">@dimen/onboarding_button_height</item>
+        <item name="android:letterSpacing">0.03</item>
+    </style>
+</resources>

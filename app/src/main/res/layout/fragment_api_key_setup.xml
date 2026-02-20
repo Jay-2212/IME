@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Onboarding Step 2 — API Key Setup (TSD Section 2.1 Step 2).
+    Secure input field with visibility toggle and live validation feedback.
+-->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="@dimen/onboarding_padding">
+
+    <!-- Headline -->
+    <TextView
+        android:id="@+id/tv_api_key_headline"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="@string/api_key_headline"
+        android:textColor="@color/text_primary"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintVertical_bias="0.15"
+        app:layout_constraintBottom_toTopOf="@id/til_api_key" />
+
+    <!-- API Key TextInputLayout (password field with visibility toggle) -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/til_api_key"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:hint="@string/api_key_hint"
+        app:endIconMode="password_toggle"
+        app:boxStrokeColor="@color/accent_secondary"
+        app:hintTextColor="@color/disabled"
+        app:layout_constraintTop_toBottomOf="@id/tv_api_key_headline"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/tv_help_link">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_api_key"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textPassword"
+            android:singleLine="true"
+            android:textColor="@color/text_primary"
+            tools:text="gsk_…" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Help link -->
+    <TextView
+        android:id="@+id/tv_help_link"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/api_key_help_link"
+        android:textColor="@color/accent_primary"
+        android:textSize="@dimen/text_label"
+        app:layout_constraintTop_toBottomOf="@id/til_api_key"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Validation status text -->
+    <TextView
+        android:id="@+id/tv_validation_status"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:textSize="@dimen/text_label"
+        android:visibility="invisible"
+        app:layout_constraintTop_toBottomOf="@id/tv_help_link"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="Validating key…"
+        tools:visibility="visible" />
+
+    <!-- Validate & Continue button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_validate_continue"
+        style="@style/Widget.GroqVoiceKeyboard.PrimaryButton"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/onboarding_button_height"
+        android:layout_marginBottom="16dp"
+        android:text="@string/btn_validate_and_continue"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

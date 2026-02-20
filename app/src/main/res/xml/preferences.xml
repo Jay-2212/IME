@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    SettingsActivity PreferenceScreen definition.
+    Displayed by SettingsActivity (TSD Section 1.2, 2.1 Step 3).
+-->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="@string/pref_category_api">
+
+        <EditTextPreference
+            android:key="groq_api_key"
+            android:title="@string/pref_api_key_title"
+            android:summary="@string/pref_api_key_summary"
+            android:inputType="textPassword"
+            android:singleLine="true" />
+
+        <ListPreference
+            android:key="groq_model"
+            android:title="@string/pref_model_title"
+            android:summary="@string/pref_model_summary"
+            android:entries="@array/groq_models"
+            android:entryValues="@array/groq_model_values"
+            android:defaultValue="whisper-large-v3-turbo" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_category_recording">
+
+        <SwitchPreferenceCompat
+            android:key="double_tap_period"
+            android:title="@string/pref_double_tap_period_title"
+            android:summary="@string/pref_double_tap_period_summary"
+            android:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            android:key="haptic_feedback"
+            android:title="@string/pref_haptic_title"
+            android:summary="@string/pref_haptic_summary"
+            android:defaultValue="true" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_category_privacy">
+
+        <Preference
+            android:key="clear_transcription_log"
+            android:title="@string/pref_clear_log_title"
+            android:summary="@string/pref_clear_log_summary" />
+
+        <Preference
+            android:key="privacy_policy"
+            android:title="@string/pref_privacy_policy_title" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

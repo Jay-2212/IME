@@ -1,0 +1,41 @@
+# GroqVoice Keyboard — Android IME
+# https://developer.android.com/studio/projects
+
+# IDE / OS artifacts
+.idea/
+*.iml
+*.iws
+*.ipr
+local.properties
+
+# Gradle build outputs
+.gradle/
+build/
+*/build/
+
+# Android Studio navigation editor
+.navigation/
+
+# Keystore files (NEVER commit these)
+*.jks
+*.keystore
+
+# Environment / secret files
+.env
+local.env
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Windows
+Thumbs.db
+
+# Lint
+lint/intermediates/
+lint/generated/
+lint/outputs/
+lint/tmp/
+
+# Node (if any web tooling is added)
+node_modules/
