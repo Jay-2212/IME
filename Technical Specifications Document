@@ -1,0 +1,501 @@
+---
+
+# **TECHNICAL SPECIFICATION DOCUMENT**
+## **GroqVoice Keyboard: Android IME with Groq Transcription**
+**Version:** 1.0 - Production Ready  
+**Architecture:** MVVM + Repository Pattern  
+**Minimum SDK:** API 26 (Android 8.0)  
+**Target SDK:** API 34 (Android 14)
+
+---
+
+## **SECTION 1: EXECUTIVE ARCHITECTURE OUTLINE**
+*[Primary Assignment: GitHub Copilot - Project Structure & Boilerplate]*
+
+### 1.1 System Architecture
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    USER INTERFACE LAYER                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │   Keyboard   │  │  Onboarding  │  │ Settings Activity │  │
+│  │   InputView  │  │   Activity   │  │   (Preference)    │  │
+│  └──────┬───────┘  └──────┬───────┘  └─────────┬─────────┘  │
+└─────────┼─────────────────┼────────────────────┼───────────┘
+          │                 │                    │
+          └─────────────────┴────────────────────┘
+                            │
+┌───────────────────────────▼───────────────────────────────┐
+│                  APPLICATION LAYER                        │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │              VoiceInputMethodService                 │ │
+│  │  - Lifecycle Management (onCreateInputView, etc.)   │ │
+│  │  - InputConnection Handling                         │ │
+│  └────────────────────────┬────────────────────────────┘ │
+│                           │                              │
+│  ┌────────────────────────▼────────────────────────────┐ │
+│  │              AudioRecordingManager                   │ │
+│  │  - State Machine (IDLE/RECORDING/HANDS_FREE/PROC)   │ │
+│  │  - AudioRecord (16kHz, MONO, PCM_16BIT)             │ │
+│  │  - Circular Buffer for Hands-Free Mode              │ │
+│  └────────────────────────┬────────────────────────────┘ │
+│                           │                              │
+└───────────────────────────┼──────────────────────────────┘
+                            │
+┌───────────────────────────▼───────────────────────────────┐
+│                   DATA LAYER                              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
+│  │  GroqAPI     │  │  LocalConfig │  │ AudioEncoder │    │
+│  │  Repository  │  │  (Encrypted) │  │  (WAV/FLAC)  │    │
+│  └──────────────┘  └──────────────┘  └──────────────┘    │
+└───────────────────────────────────────────────────────────┘
+```
+
+### 1.2 Module Breakdown
+**Package Structure:**
+```
+com.groqvoice.keyboard/
+├── ime/                          # Input Method Framework
+│   ├── VoiceInputMethodService.kt
+│   ├── KeyboardView.kt           # Custom view rendering
+│   └── InputConnectionHelper.kt  # Text manipulation utilities
+├── audio/                        # Audio processing
+│   ├── AudioRecordingManager.kt  # State machine & recording
+│   ├── AudioEncoder.kt           # WAV/FLAC encoding
+│   └── VoiceActivityDetector.kt  # Hands-free silence detection
+├── api/                          # Network layer
+│   ├── GroqRepository.kt
+│   ├── GroqApiService.kt         # Retrofit interface
+│   └── ApiKeyInterceptor.kt      # Header injection
+├── ui/                           # Activities & Fragments
+│   ├── onboarding/
+│   │   ├── WelcomeActivity.kt
+│   │   ├── ApiKeySetupFragment.kt
+│   │   └── KeyboardEnableFragment.kt
+│   └── settings/
+│       └── SettingsActivity.kt
+├── utils/                        # Utilities
+│   ├── PermissionManager.kt
+│   ├── SecurePrefs.kt            # Encrypted SharedPreferences
+│   └── FileCacheManager.kt       # Temp file cleanup
+└── model/                        # Data classes
+    ├── RecordingState.kt         # Sealed class for states
+    └── TranscriptionResult.kt
+```
+
+---
+
+## **SECTION 2: USER ONBOARDING & GUIDANCE SYSTEM**
+*[Primary Assignment: GitHub Copilot - UI Flows | Secondary: Gemini - UX Copy]*
+
+### 2.1 Onboarding Flow (3-Step Mandatory)
+**Step 1: Welcome & Permissions**
+- **Visual:** Full-screen gradient background (Deep Purple → Blue)
+- **Content:** "GroqVoice enables fast voice typing powered by Groq AI"
+- **Action:** "Get Started" button → Triggers permission request
+- **Permissions Required:**
+  - `RECORD_AUDIO` (Runtime permission with rationale)
+  - `INTERNET` (Manifest only)
+  - `VIBRATE` (Haptic feedback)
+  - `POST_NOTIFICATIONS` (API 33+, for hands-free mode indicator)
+
+**Step 2: API Key Configuration**
+- **Visual:** Secure input field with visibility toggle
+- **Validation:** 
+  - Regex pattern: `^gsk_[a-zA-Z0-9]{40,}$` (Groq key format)
+  - Live validation: Test call to `/models` endpoint
+  - Error states: Invalid format, Unauthorized, Network error
+- **Help Link:** "Where do I find this?" → Opens Groq Console (https://console.groq.com/keys)
+- **Security:** 
+  - Store in `EncryptedSharedPreferences` (AndroidX Security)
+  - Never log to Logcat
+  - Memory wipe on app backgrounding (optional enhancement)
+
+**Step 3: Keyboard Activation**
+- **Visual:** Animated GIF showing Settings → Languages → Keyboard selection
+- **System Intent:** `ACTION_INPUT_METHOD_SETTINGS`
+- **Auto-Detection:** Check `InputMethodManager.enabledInputMethodList` to verify activation
+- **Test Area:** Inline EditText to test immediately after enabling
+
+### 2.2 Contextual Guidance System
+**First-Run Tooltips (SharedPreferences tracking):**
+1. **Mic Button:** "Hold to record • Tap for hands-free"
+2. **Space/Backspace:** "Standard controls available"
+3. **Settings Gear:** "Change API key or model"
+
+**Empty State Handling:**
+- If API key missing: Show red banner "Tap to configure API key"
+- If network unavailable: Cache locally, queue for retry
+- If quota exceeded: Show upgrade message from Groq error response
+
+---
+
+## **SECTION 3: UI/UX DESIGN SPECIFICATIONS**
+*[Primary Assignment: GitHub Copilot - Custom Views | Secondary: Kimi - Animation Logic]*
+
+### 3.1 Visual Design System
+**Color Palette:**
+- Background: `#1A1A2E` (Deep Navy)
+- Primary Accent: `#E94560` (Coral Red - Recording state)
+- Secondary: `#0F3460` (Dark Blue - Idle state)
+- Text: `#EAEAEA` (Off-white)
+- Disabled: `#4A4A6A` (Muted purple)
+
+**Typography:**
+- Font: Inter (Variable font for weight animations)
+- Mic Icon Size: 72dp (central focal point)
+- Label Text: 14sp, Medium weight
+
+**Dimensions:**
+- Keyboard Height: 280dp (standard keyboard height)
+- Key Corners: 24dp radius (modern, soft aesthetic)
+- Padding: 16dp horizontal, 20dp vertical
+
+### 3.2 Layout Specifications
+**Keyboard Layout (Vertical Stack):**
+```
+┌─────────────────────────────────────┐
+│  [Optional: Transcription Preview]  │  ← 48dp height, scrollable
+├─────────────────────────────────────┤
+│                                     │
+│           [MIC BUTTON]              │  ← 120dp diameter, centered
+│          (Circular, 72dp icon)      │
+│                                     │
+│   [BACKSPACE]        [SPACEBAR]     │  ← Bottom row
+│    60dp wide        200dp wide      │
+└─────────────────────────────────────┘
+```
+
+**Mic Button States:**
+1. **Idle:** Secondary color (#0F3460), subtle pulse animation (2s loop)
+2. **Press-to-Talk:** Primary color (#E94560), scale 1.1x, ripple effect
+3. **Hands-Free (Active):** Primary color with rotating gradient border
+4. **Processing:** Gray (#4A4A6A), circular progress indicator
+5. **Error:** Red shake animation + haptic feedback
+
+### 3.3 Animation Specifications
+- **Touch Feedback:** Haptic `VibrationEffect.EFFECT_CLICK` on press
+- **State Transitions:** 200ms ease-in-out interpolator
+- **Recording Amplitude:** Visual waveform around mic button (optional v2)
+- **Success:** Mic button "pop" effect (scale 1.0 → 1.2 → 1.0) when text commits
+
+---
+
+## **SECTION 4: CORE FUNCTIONALITY & STATE MANAGEMENT**
+*[Primary Assignment: Kimi - State Machine Logic | Secondary: CodeX - Audio Handling]*
+
+### 4.1 Recording State Machine
+```kotlin
+sealed class RecordingState {
+    object Idle : RecordingState()
+    data class Recording(
+        val mode: RecordingMode,
+        val startTime: Long,
+        val audioBuffer: CircularByteBuffer
+    ) : RecordingState()
+    object Processing : RecordingState()
+    data class Error(val message: String) : RecordingState()
+}
+
+enum class RecordingMode {
+    PUSH_TO_TALK,      // Hold to record, release to stop
+    HANDS_FREE         // Tap to start, auto-stop on silence/volume
+}
+```
+
+### 4.2 Input Handling Logic
+**Touch Event Processing:**
+```kotlin
+// Pseudocode for Mic Button TouchListener
+when (event.action) {
+    ACTION_DOWN -> {
+        startTime = System.currentTimeMillis()
+        handler.postDelayed(handsFreeRunnable, 800) // 800ms threshold
+        startVisualFeedback()
+    }
+    ACTION_UP -> {
+        val duration = System.currentTimeMillis() - startTime
+        handler.removeCallbacks(handsFreeRunnable)
+        
+        if (duration < 800) {
+            // Tap detected - Enter Hands-Free mode
+            if (currentState is Recording && currentState.mode == HANDS_FREE) {
+                stopRecording() // Toggle off
+            } else {
+                startRecording(HANDS_FREE)
+            }
+        } else {
+            // Hold-and-release - Push to talk stop
+            stopRecording()
+        }
+    }
+}
+```
+
+### 4.3 Audio Recording Specifications
+**Configuration:**
+- **Source:** `MediaRecorder.AudioSource.VOICE_RECOGNITION` (optimized for voice, noise suppression)
+- **Sample Rate:** 16000 Hz (Groq optimal)
+- **Channel:** Mono (CHANNEL_IN_MONO)
+- **Encoding:** 16-bit PCM (ENCODING_PCM_16BIT)
+- **Buffer Size:** `AudioRecord.getMinBufferSize() * 2` (prevent overflow)
+
+**Hands-Free Mode Logic:**
+- **Voice Activity Detection (VAD):** Simple amplitude threshold (500ms silence = stop)
+- **Max Duration:** 5 minutes (prevent memory issues)
+- **Pre-buffer:** Optional 300ms lookback to capture start of speech
+
+### 4.4 Text Manipulation (InputConnection)
+**Commit Strategy:**
+- `InputConnection.setComposingText()` while processing (shows underline)
+- `InputConnection.finishComposingText()` + `commitText()` when Groq returns
+- **Backspace:** `InputConnection.deleteSurroundingText(1, 0)` with UTF-16 surrogate pair handling
+- **Space:** `commitText(" ", 1)` with auto-capitalization detection (check `EditorInfo.inputType`)
+
+**Editor Compatibility:**
+- Handle `InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS` (don't show composing text)
+- Respect `IME_FLAG_NO_ENTER_ACTION` (don't submit forms)
+- Support `InputType.TYPE_TEXT_VARIATION_PASSWORD` (disable keyboard for security fields)
+
+---
+
+## **SECTION 5: EDGE CASES & ERROR HANDLING MATRIX**
+*[Primary Assignment: Gemini - Comprehensive Edge Cases | Secondary: Kimi - Error Recovery]*
+
+### 5.1 API & Network Edge Cases
+| Scenario | Detection | Handling Strategy |
+|----------|-----------|-------------------|
+| **Rate Limiting (429)** | HTTP status | Exponential backoff (2s, 4s, 8s) + Toast "Too many requests" |
+| **Invalid API Key (401)** | HTTP status | Redirect to onboarding, clear cached key |
+| **File Too Large (413)** | HTTP status | Split audio (if >25MB) or compress to FLAC |
+| **Network Timeout** | IOException | Queue for retry, save to disk, notify user |
+| **Partial Transcription** | 200 with warning | Append "..." to text, log warning |
+| **Quota Exhausted** | 429 + error msg | Show billing link, disable recording temporarily |
+
+### 5.2 Audio Edge Cases
+| Scenario | Detection | Handling Strategy |
+|----------|-----------|-------------------|
+| **Silent Recording** | RMS < -40dB for 3s | Discard, show "No speech detected" |
+| **Clipping/Distortion** | Peak amplitude > 0dB | Show warning "Please speak softer" |
+| **Hardware Unavailable** | AudioRecord initialization fail | Fallback to MediaRecorder, notify degradation |
+| **Bluetooth Mic** | Audio routing change | Restart recording with new source, or block BT |
+| **Phone Call Interruption** | TelephonyManager state | Auto-stop recording, discard buffer (privacy) |
+| **Backgrounding** | onTrimMemory | Save state, finish recording if possible |
+
+### 5.3 IME Framework Edge Cases
+| Scenario | Detection | Handling Strategy |
+|----------|-----------|-------------------|
+| **Keyboard Hidden** | onFinishInputView | Stop recording immediately (privacy) |
+| **Screen Rotation** | Configuration change | Save state in onCreateInputView bundle |
+| **Multiple Input Fields** | onStartInput | Reset state, check new field inputType |
+| **Password Field** | InputType variation | Show "Voice disabled for security" banner |
+| **Incognito Mode** | EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING | Disable cloud API, show local-only warning |
+| **Low Memory** | onTrimMemory | Clear audio buffer, stop non-essential animations |
+
+### 5.4 User Interaction Edge Cases
+- **Rapid Tap:** Debounce 300ms to prevent state machine corruption
+- **Swipe from Keyboard:** Detect gesture to close keyboard (finishInput)
+- **Long Press Backspace:** Repeat deletion (100ms interval after 500ms hold)
+- **Double-tap Space:** Insert period + space (configurable in settings)
+
+---
+
+## **SECTION 6: PERFORMANCE OPTIMIZATION**
+*[Primary Assignment: Kimi - Optimization | Secondary: Copilot - Implementation]*
+
+### 6.1 Memory Management
+- **Audio Buffer:** Circular buffer with 5-minute max capacity (~94MB at 16kHz/16bit)
+- **Bitmap Recycling:** Reuse drawable objects for mic states
+- **Leak Prevention:** WeakReference for callbacks, cancel coroutines in onDestroy
+- **File Cleanup:** Delete temp WAV files immediately after transcription or on app start if orphaned
+
+### 6.2 Network Optimization
+- **Compression:** Use FLAC instead of WAV (50% size reduction, lossless)
+- **Connection Pooling:** OkHttp connection pool (5 connections, 5min keepalive)
+- **Retry Strategy:** Exponential backoff with jitter for 5xx errors
+- **Caching:** 304 response handling for model list (if implemented)
+
+### 6.3 Battery Optimization
+- **Partial Wake Lock:** Only during hands-free recording (with 5min timeout)
+- **Doze Mode:** Use WorkManager for retry queue when device idle
+- **Audio Source:** Use `VOICE_RECOGNITION` source (lower power than `MIC`)
+
+### 6.4 Latency Optimization
+- **Pre-rotation:** Compress audio in background thread while user holds button
+- **Early Validation:** Check API key format before network call
+- **Parallel Loading:** Prefetch Groq model list on app start (if caching enabled)
+
+---
+
+## **SECTION 7: SECURITY & PRIVACY**
+*[Primary Assignment: Gemini - Security Audit | Secondary: Copilot - Implementation]*
+
+### 7.1 Data Protection
+- **API Key Storage:** 
+  ```kotlin
+  val masterKey = MasterKey.Builder(context)
+      .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+      .build()
+  val securePrefs = EncryptedSharedPreferences.create(
+      context, "secure_prefs", masterKey,
+      EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+      EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+  )
+  ```
+- **Memory Safety:** Clear byte arrays after use (`Arrays.fill(buffer, 0)`)
+- **Network Security:** Certificate pinning for api.groq.com (optional)
+- **No Logging:** ProGuard rules to strip logs in release: `-assumenosideeffects class android.util.Log { *; }`
+
+### 7.2 Privacy Compliance
+- **Incognito Mode:** Respect `IME_FLAG_NO_PERSONALIZED_LEARNING` (don't send to API, show warning)
+- **Data Retention:** Groq claims 0-day retention for Whisper API , but add disclaimer in ToS
+- **Permissions:** Runtime permission with "Don't ask again" handling
+- **Audit Trail:** Local log of transcription timestamps (no content) for user review
+
+---
+
+## **SECTION 8: TESTING STRATEGY**
+*[Primary Assignment: Gemini - Test Cases | Secondary: CodeX - Test Implementation]*
+
+### 8.1 Unit Tests (JUnit)
+- **AudioEncoder:** Verify WAV header format, sample rate conversion
+- **StateMachine:** Test all state transitions (Idle→Recording→Processing→Idle)
+- **InputConnectionHelper:** Mock InputConnection, verify text insertion/deletion
+
+### 8.2 Integration Tests (Espresso)
+- **Onboarding Flow:** Complete setup, verify keyboard appears in system list
+- **Recording Flow:** Mock AudioRecord, simulate touch events, verify API call
+- **Error Handling:** Mock 401 response, verify redirect to onboarding
+
+### 8.3 Manual Testing Checklist
+- [ ] Android 8.0 (API 26) - Android 14 (API 34)
+- [ ] Dark/Light mode (if system override exists)
+- [ ] Split-screen mode (multi-window)
+- [ ] Foldable devices (configuration changes)
+- [ ] Different apps: Chrome (URL bar), Messages (SMS), Gmail (Compose), WhatsApp
+- [ ] Bluetooth headset recording
+- [ ] Airplane mode (offline handling)
+
+---
+
+## **SECTION 9: AI COLLABORATION WORKFLOW**
+*[Process Management]*
+
+### 9.1 Phase Division & Tool Assignment
+
+**Phase 1: Foundation (GitHub Copilot)**
+- Input: This TSD Section 1, 2, 3
+- Output: Project structure, build.gradle dependencies, base classes, XML layouts
+- Prompt Template: "Implement [Specific Class] according to TSD Section [X]. Follow MVVM pattern, use Kotlin coroutines, include detailed KDoc comments."
+
+**Phase 2: Core Logic (Kimi 2.5)**
+- Input: This TSD Section 4, 5, 6 + Copilot-generated boilerplate
+- Output: State machine implementation, audio recording logic, error handling
+- Focus: Thread safety, memory leaks, state consistency
+
+**Phase 3: API Integration (CodeX)**
+- Input: This TSD Section 4.4, 5.1 + Repository interfaces
+- Output: Retrofit service, Multipart upload, response parsing, retry logic
+- Focus: Network resilience, Groq-specific error handling
+
+**Phase 4: Security & Polish (Gemini 3.1 Pro)**
+- Input: This TSD Section 7 + Complete codebase
+- Output: Security audit, encryption implementation, privacy compliance checks, performance profiling
+- Focus: Penetration testing mindset, edge case discovery
+
+**Phase 5: Integration Testing (All Tools)**
+- Copilot: Generate Espresso tests
+- Kimi: Fix race conditions found in testing
+- CodeX: Mock server responses for API tests
+- Gemini: Review final privacy policy and security implementation
+
+### 9.2 Review Protocol
+1. **Daily Standup Prompt:** "Review [File]. Check against TSD Section [Y]. List deviations and suggest fixes."
+2. **Cross-Reference Check:** "Ensure AudioRecordingManager handles all states defined in RecordingState sealed class."
+3. **Security Scan:** "Search for hardcoded strings, Log.d with sensitive data, or unencrypted SharedPreferences usage."
+
+---
+
+## **SECTION 10: IMPLEMENTATION CHECKLIST**
+**Milestone Tracker for Project Management**
+
+### Week 1: Core Infrastructure
+- [ ] Android project setup with IME service declaration
+- [ ] Onboarding Activity with ViewPager2
+- [ ] Secure API key storage implementation
+- [ ] Basic KeyboardView with three buttons (Mic, Backspace, Space)
+
+### Week 2: Audio & State Management
+- [ ] AudioRecordingManager with State Machine
+- [ ] Touch handling (800ms threshold logic)
+- [ ] WAV encoding and file management
+- [ ] Hands-free mode with silence detection
+
+### Week 3: API Integration
+- [ ] GroqRepository with Retrofit
+- [ ] Multipart file upload
+- [ ] Error handling middleware
+- [ ] Response parsing and text commitment
+
+### Week 4: Polish & Optimization
+- [ ] Animation refinement (Lottie or native)
+- [ ] Memory profiling and leak fixes
+- [ ] Accessibility labels (ContentDescription)
+- [ ] Google Play Store assets (screenshots, description)
+
+---
+
+## **APPENDIX A: GROQ API SPECIFICATIONS**
+**Critical Technical Details for CodeX Implementation**
+
+**Endpoint:** `POST https://api.groq.com/openai/v1/audio/transcriptions`
+
+**Headers:**
+```
+Authorization: Bearer {API_KEY}
+Content-Type: multipart/form-data
+```
+
+**Parameters:**
+- `file`: File (Required, max 25MB)
+- `model`: String (Required, `whisper-large-v3-turbo` recommended)
+- `language`: String (Optional, ISO-639-1 format, e.g., "en")
+- `temperature`: Number (Optional, 0.0-1.0, default 0.0 for accuracy)
+- `response_format`: String (Optional, `json`, `text`, `srt`, `verbose_json`, `vtt`)
+
+**Response Model:**
+```kotlin
+data class TranscriptionResponse(
+    val text: String,
+    val x_groq: GroqMetadata? // Contains usage info
+)
+
+data class GroqMetadata(
+    val id: String,
+    val usage: UsageStats
+)
+
+data class UsageStats(
+    val queue_time: Double,
+    val prompt_tokens: Int,
+    val prompt_time: Double,
+    val completion_tokens: Int,
+    val completion_time: Double,
+    val total_tokens: Int,
+    val total_time: Double
+)
+```
+
+**Error Codes:**
+- 401: Invalid API Key
+- 429: Rate limit exceeded (Headers: `retry-after`)
+- 413: File too large
+- 500/502/503: Server error (retry with backoff)
+
+**Rate Limits:**
+- 20 requests/minute (default tier)
+- 2000 tokens/minute
+- Implement client-side throttling to avoid hard limits
+
+---
+
+This document provides complete coverage of your requirements. **Start by feeding Sections 1-3 to GitHub Copilot to generate the project skeleton**, then iterate through the remaining sections with your specialized tools. The architecture supports your four-AI workflow while ensuring the final app is production-ready, secure, and delightfully minimal.
