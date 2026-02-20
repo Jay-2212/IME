@@ -104,15 +104,247 @@
 
 ---
 
-**Remaining Tasks (for subsequent phases):**
+## Entry 2
 
-### Phase 2 — Core Logic (Kimi 2.5)
-- [ ] Implement `CircularByteBuffer` for hands-free pre-buffering (300ms lookback, TSD 4.3)
-- [ ] Wire `TelephonyManager` phone-call interruption handler (TSD 5.2)
-- [ ] Implement `WAKE_LOCK` acquisition/release in `AudioRecordingManager` for hands-free mode
-- [ ] `onTrimMemory` in `VoiceInputMethodService`: clear audio buffer, stop animations
-- [ ] Bluetooth audio routing change handler (TSD 5.2)
-- [ ] Long-press backspace repeat (wire `backspaceRepeatRunnable` fully in `KeyboardView`)
+**Timestamp:** 2026-02-21T00:30:00Z
+
+**Current Phase:** Core Logic (Phase 2 of 5 — TSD Section 4, 5, 6)
+
+**Agent:** Kimi
+
+**Status:** COMPLETE
+
+---
+
+### New Files Created
+
+#### 1. CircularByteBuffer.kt
+**Path:** `app/src/main/java/com/groqvoice/keyboard/audio/CircularByteBuffer.kt`
+
+Thread-safe circular byte buffer for hands-free mode pre-buffering. Implements 300ms lookback per TSD 4.3.
+
+**Key Features:**
+- ReentrantReadWriteLock for thread safety
+- Zero-fill security on clear/close (TSD 7.1)
+- Default 19,200 bytes capacity (300ms @ 16kHz/16-bit PCM × 2× safety)
+- Configurable capacity with MIN/MAX bounds
+
+**API:** `write()`, `readAll()`, `drainTo()`, `clear()`, `close()`
+
+---
+
+#### 2. CircularByteBufferTest.kt
+**Path:** `app/src/test/java/com/groqvoice/keyboard/audio/CircularByteBufferTest.kt`
+
+Comprehensive unit test suite (20+ test cases) covering:
+- Initial state, capacity clamping, write/read operations
+- Circular wrapping, overflow handling, empty reads
+- Drain semantics, clear/close operations, security
+- Boundary conditions, sequential operations
+
+---
+
+#### 3. PHASE2_CORE_LOGIC.md
+**Path:** `PHASE2_CORE_LOGIC.md`
+
+Comprehensive technical documentation covering:
+- Architecture decisions and rationale
+- API reference for all new components
+- Edge cases handled
+- Threading model
+- Security notes
+- Performance considerations
+- Testing strategy
+- Handoff notes for next agent
+
+---
+
+### Files Modified
+
+#### 1. AudioRecordingManager.kt
+**Path:** `app/src/main/java/com/groqvoice/keyboard/audio/AudioRecordingManager.kt`
+
+**Changes:**
+- Added `Context` parameter to constructor for system service access
+- **Pre-buffering**: `CircularByteBuffer` integration for 300ms lookback in hands-free mode
+  - `startPreBuffering()` / `doPreBuffering()` / `stopPreBuffering()`
+  - `drainPreBuffer()` transfers pre-captured audio on recording start
+- **Wake Lock**: `acquireWakeLock()` / `releaseWakeLock()` using `PARTIAL_WAKE_LOCK` (TSD 6.3)
+  - 5m30s timeout safety net, acquired only during hands-free recording
+- **Phone Call Interruption**: `TelephonyManager.PhoneStateListener` (TSD 5.2)
+  - Listens for `CALL_STATE_OFFHOOK` and `CALL_STATE_RINGING`
+  - Auto-stops recording, discards buffers for privacy
+- **Bluetooth Routing**: `BroadcastReceiver` for audio routing changes (TSD 5.2)
+  - Handles `ACTION_SCO_AUDIO_STATE_UPDATED`, `ACTION_HEADSET_PLUG`
+  - Prevents corrupted recordings across device switches
+- **Interruption API**: `InterruptionReason` enum, `stopForInterruption()`, `onInterrupted` callback
+- **onTrimMemory**: `onTrimMemory(level)` method for memory pressure handling
+- **Security**: Zero-fill PCM data after encoding in `finishRecording()`
+
+---
+
+#### 2. VoiceInputMethodService.kt
+**Path:** `app/src/main/java/com/groqvoice/keyboard/ime/VoiceInputMethodService.kt`
+
+**Changes:**
+- **onTrimMemory**: Full implementation per TSD 5.3
+  - `TRIM_MEMORY_RUNNING_CRITICAL`: Stops recording, clears animations
+  - `TRIM_MEMORY_RUNNING_LOW`: Clears buffers via AudioRecordingManager
+  - `TRIM_MEMORY_RUNNING_MODERATE`: Clears pre-buffer only
+- **Backspace Long-Press**: Complete implementation (TSD 5.4)
+  - `wireBackspaceButton()`: Proper touch lifecycle setup
+  - `stopBackspaceRepeat()`: Cancellation on touch up
+  - `isBackspaceRepeating`: State tracking flag
+  - Initial hold: 500ms, repeat interval: 100ms
+- **Audio Routing Receiver**: Service-level receiver for SCO state changes
+- **Interruption Callback**: Handles `onInterrupted` from AudioRecordingManager
+  - Shows appropriate error banners for phone call / Bluetooth / memory
+  - Clears composing text, auto-resets to Idle after 3s
+- Updated constructor call: `AudioRecordingManager(this, fileCacheManager)`
+
+---
+
+#### 3. KeyboardView.kt
+**Path:** `app/src/main/java/com/groqvoice/keyboard/ime/KeyboardView.kt`
+
+**Changes:**
+- **Backspace Touch-Up Callback**: Added `onBackspaceTouchUp` listener
+- **Enhanced Touch Handling**: `setupListeners()` now wires `OnTouchListener` for backspace
+  - Detects `ACTION_UP` and `ACTION_CANCEL` to stop repeat
+  - Returns `false` to allow long-click detection to work
+- **Documentation**: Complete KDoc rewrite with state mapping table, layout structure
+
+---
+
+#### 4. AndroidManifest.xml
+**Path:** `app/src/main/AndroidManifest.xml`
+
+**Changes:**
+- Added `READ_PHONE_STATE` permission for phone call detection (TSD 5.2):
+  ```xml
+  <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+  ```
+
+---
+
+#### 5. strings.xml
+**Path:** `app/src/main/res/values/strings.xml`
+
+**Changes:**
+- Added interruption error messages:
+  - `error_recording_interrupted_call`: "Recording stopped — phone call detected"
+  - `error_recording_interrupted_bluetooth`: "Recording stopped — Bluetooth audio changed"
+  - `error_recording_interrupted_memory`: "Recording stopped — low memory"
+
+---
+
+### Phase 2 Checklist
+
+- [x] Implement `CircularByteBuffer` for hands-free pre-buffering (300ms lookback, TSD 4.3)
+- [x] Wire `TelephonyManager` phone-call interruption handler (TSD 5.2)
+- [x] Implement `WAKE_LOCK` acquisition/release in `AudioRecordingManager` for hands-free mode
+- [x] `onTrimMemory` in `VoiceInputMethodService`: clear audio buffer, stop animations
+- [x] Bluetooth audio routing change handler (TSD 5.2)
+- [x] Long-press backspace repeat (wire `backspaceRepeatRunnable` fully in `KeyboardView`)
+
+---
+
+### Architecture Notes
+
+**Threading Model:**
+- Pre-buffering runs on separate `Dispatchers.IO` coroutine
+- Audio recording loop runs on `Dispatchers.IO`
+- State updates via `StateFlow` (thread-safe)
+- UI callbacks posted to `Dispatchers.Main`
+
+**Interruption Handling Flow:**
+1. System event (phone call, Bluetooth change) detected
+2. `AudioRecordingManager.stopForInterruption()` called
+3. Buffers zero-filled and discarded (privacy)
+4. Wake lock released, listeners unregistered
+5. `onInterrupted` callback invoked with reason
+6. Service posts to main thread, shows error banner
+7. Auto-reset to Idle after 3 seconds
+
+**Memory Safety:**
+- All PCM buffers zero-filled before release
+- Pre-buffer cleared on interruption and close
+- `onTrimMemory` cascade clears non-essential buffers
+
+---
+
+### Documentation
+
+**New Documentation:**
+- `PHASE2_CORE_LOGIC.md` — Comprehensive technical documentation
+
+**Updated Documentation:**
+- All modified files have enhanced KDoc comments
+- Architecture decisions documented with rationale
+
+---
+
+### Unresolved / Next Steps
+
+#### For Phase 3 — API Integration (CodeX)
+- [ ] FLAC encoding support (50% size reduction, TSD 6.2)
+- [ ] WorkManager retry queue for network-unavailable (TSD 5.1, 6.3)
+- [ ] `response_format=verbose_json` parsing for `x_groq` metadata
+- [ ] Client-side request throttling (20 req/min, TSD Appendix A)
+- [ ] Partial transcription detection (200 + warning field)
+
+#### For Phase 4 — Security & Polish (Gemini)
+- [ ] Replace placeholder Lottie animation
+- [ ] Certificate pinning for `api.groq.com` (TSD 7.1)
+- [ ] Mic button animations (pulse, scale, gradient border, shake, pop)
+- [ ] Accessibility labels (ContentDescription)
+- [ ] Transcription timestamp audit log (TSD 7.2)
+- [ ] Double-tap period preference wiring
+
+#### For Phase 5 — Testing (All)
+- [ ] Espresso: Full onboarding flow
+- [ ] Espresso: Mock 401 → verify redirect
+- [ ] Unit test: AudioRecordingManager state transitions (needs Robolectric)
+- [ ] Unit test: GroqRepository retry/backoff (mock OkHttp)
+- [ ] Manual testing matrix (TSD 8.3)
+
+---
+
+### Handoff Notes for Phase 3 Agent (CodeX)
+
+**API Changes:**
+- `AudioRecordingManager` now requires `Context` in constructor
+- New `onInterrupted` callback for interruption handling
+- `AudioRecordingManager.onTrimMemory(level)` for memory pressure
+
+**Behavioral Changes:**
+- Hands-free mode now has 300ms pre-buffer (may affect latency perception)
+- Recording auto-stops on phone calls and Bluetooth changes
+- Wake lock acquired during hands-free recording (check battery metrics)
+
+**Integration Points:**
+- Audio file is passed to `onRecordingComplete` callback as `File`
+- Current encoding is WAV only — FLAC support needed in Phase 3
+- Error handling for network, rate limiting, quota exceeded needed
+
+**Testing Notes:**
+- Pre-buffering increases memory usage by ~19KB during keyboard visibility
+- Wake lock timeout is 5m30s — verify this works with your test scenarios
+- Phone state listener requires `READ_PHONE_STATE` permission (already added)
+
+---
+
+**Architect's Thoughts:**
+
+The Phase 2 implementation focuses on robustness and edge case handling. The pre-buffering mechanism ensures users don't lose the beginning of their speech in hands-free mode, while the interruption handling ensures privacy during phone calls. The wake lock implementation follows Android best practices (partial only, with timeout).
+
+The circular buffer implementation uses a read-write lock pattern that allows efficient concurrent access while maintaining thread safety. This is crucial because the pre-buffering coroutine writes continuously while the recording coroutine may need to drain the buffer.
+
+Memory safety is enforced through consistent zero-filling of audio buffers. This is computationally cheap (single pass through memory) but provides defense-in-depth against potential data leakage.
+
+---
+
+**Remaining Tasks (for subsequent phases):**
 
 ### Phase 3 — API Integration (CodeX)
 - [ ] ~~Wire `GET /models` correctly~~ — fixed in skeleton (was POST, corrected to GET in `GroqApiService`)

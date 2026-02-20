@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Wake lock for hands-free recording (PARTIAL_WAKE_LOCK only) -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Phone state for auto-stopping recording during calls (TSD 5.2) -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
     <application
         android:name=".GroqVoiceApplication"

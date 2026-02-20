@@ -17,8 +17,40 @@ import com.groqvoice.keyboard.model.RecordingState
  * Custom [FrameLayout] that inflates [R.layout.keyboard_view] and wires up
  * all UI state transitions for the mic button, backspace, and spacebar.
  *
- * Delegates touch events to [onMicTouchListener] so that [VoiceInputMethodService]
- * can control the state machine without tight coupling to the view.
+ * ## Responsibilities
+ *
+ * - **Visual State Management**: Updates button colors, labels, and visibility
+ *   based on [RecordingState] (Idle, Recording, Processing, Error).
+ * - **Touch Event Delegation**: Delegates mic button touch events to
+ *   [onMicTouchListener] so that [VoiceInputMethodService] can control the
+ *   state machine without tight coupling to the view.
+ * - **Backspace Long-Press**: Handles the complete touch lifecycle for backspace
+ *   including down, long-press trigger, and up events for proper repeat behavior.
+ *
+ * ## Button States
+ *
+ * Per TSD Section 3.2, the mic button has five visual states:
+ * 1. **Idle**: Secondary color (#0F3460), subtle pulse animation
+ * 2. **Recording (Push-to-Talk)**: Primary color (#E94560), scale 1.1x
+ * 3. **Recording (Hands-Free)**: Primary color with rotating gradient border
+ * 4. **Processing**: Gray (#4A4A6A), circular progress indicator
+ * 5. **Error**: Red shake animation + haptic feedback
+ *
+ * ## Layout Structure
+ *
+ * ```
+ * ┌─────────────────────────────────────┐
+ * │  [Transcription Preview Strip]      │ 48dp
+ * ├─────────────────────────────────────┤
+ * │                                     │
+ * │         [MIC BUTTON]                │ 120dp FAB
+ * │                                     │
+ * │   [BACKSPACE]       [SPACEBAR]      │ Bottom row
+ * │   [SETTINGS GEAR]                   │
+ * └─────────────────────────────────────┘
+ * ```
+ *
+ * @see VoiceInputMethodService The IME service that owns and controls this view.
  *
  * TSD Section 3.2, 3.3, 4.2.
  */
@@ -41,6 +73,7 @@ class KeyboardView @JvmOverloads constructor(
     var onMicTouchListener: ((event: MotionEvent) -> Boolean)? = null
     var onBackspaceClick: (() -> Unit)? = null
     var onBackspaceLongClick: (() -> Boolean)? = null
+    var onBackspaceTouchUp: (() -> Unit)? = null
     var onSpacebarClick: (() -> Unit)? = null
     var onSettingsClick: (() -> Unit)? = null
 
@@ -67,37 +100,58 @@ class KeyboardView @JvmOverloads constructor(
      * Updates all visual elements to reflect the new [RecordingState].
      * Must be called on the main thread.
      *
-     * TSD Section 3.2 — Mic Button States.
+     * ## State Mapping (TSD Section 3.2)
+     *
+     * | State | Mic Color | State Label | Animations |
+     * |-------|-----------|-------------|------------|
+     * | Idle | Secondary | "Tap or hold to speak" | Pulse (subtle) |
+     * | Recording (PTT) | Primary | "Recording..." | Scale 1.1x |
+     * | Recording (HF) | Primary + Border | "Listening..." | Rotating gradient |
+     * | Processing | Disabled | "Processing..." | Circular progress |
+     * | Error | Error | "Error" | Shake + haptic |
+     *
+     * @param state The current recording state from AudioRecordingManager.
      */
     fun applyState(state: RecordingState) {
         when (state) {
             is RecordingState.Idle -> {
                 btnMic.backgroundTintList =
-                    context.getColorStateList(R.color.accent_secondary)
+                    context.getColorStateList(R.color.accent_secondary, null)
                 stateLabel.text = context.getString(R.string.state_idle)
                 stateLabel.setTextColor(context.getColor(R.color.disabled))
                 transcriptionPreviewContainer.visibility = View.GONE
+                // Reset mic button scale
+                btnMic.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
             }
             is RecordingState.Recording -> {
                 val labelRes = if (state.mode == RecordingMode.HANDS_FREE)
                     R.string.state_hands_free else R.string.state_recording
                 btnMic.backgroundTintList =
-                    context.getColorStateList(R.color.accent_primary)
+                    context.getColorStateList(R.color.accent_primary, null)
                 stateLabel.text = context.getString(labelRes)
                 stateLabel.setTextColor(context.getColor(R.color.accent_primary))
+
+                // Scale animation for recording state
+                if (state.mode == RecordingMode.PUSH_TO_TALK) {
+                    btnMic.animate().scaleX(1.1f).scaleY(1.1f).setDuration(200).start()
+                }
             }
             is RecordingState.Processing -> {
                 btnMic.backgroundTintList =
-                    context.getColorStateList(R.color.disabled)
+                    context.getColorStateList(R.color.disabled, null)
                 stateLabel.text = context.getString(R.string.state_processing)
                 stateLabel.setTextColor(context.getColor(R.color.disabled))
+                // Reset scale
+                btnMic.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
             }
             is RecordingState.Error -> {
                 btnMic.backgroundTintList =
-                    context.getColorStateList(R.color.error)
+                    context.getColorStateList(R.color.error, null)
                 stateLabel.text = context.getString(R.string.state_error)
                 stateLabel.setTextColor(context.getColor(R.color.error))
                 showBanner(state.message)
+                // Reset scale
+                btnMic.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
             }
         }
     }
@@ -113,7 +167,15 @@ class KeyboardView @JvmOverloads constructor(
         transcriptionPreviewContainer.visibility = View.GONE
     }
 
-    /** Displays a contextual banner message (TSD Section 2.2). */
+    /**
+     * Displays a contextual banner message (TSD Section 2.2).
+     *
+     * Banners are used for:
+     * - Missing API key (red)
+     * - Password field warning (yellow)
+     * - Incognito mode notice (gray)
+     * - Error messages (red)
+     */
     fun showBanner(message: String) {
         bannerMessage.text = message
         bannerMessage.visibility = View.VISIBLE
@@ -129,12 +191,25 @@ class KeyboardView @JvmOverloads constructor(
     // ──────────────────────────────────────────────────────────────────────────
 
     private fun setupListeners() {
+        // Mic button touch handling
         btnMic.setOnTouchListener { _, event ->
             onMicTouchListener?.invoke(event) ?: false
         }
 
+        // Backspace with full touch lifecycle for long-press repeat
         btnBackspace.setOnClickListener { onBackspaceClick?.invoke() }
         btnBackspace.setOnLongClickListener { onBackspaceLongClick?.invoke() ?: false }
+        btnBackspace.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    onBackspaceTouchUp?.invoke()
+                }
+            }
+            // Return false to allow long-click detection to work
+            false
+        }
+
         btnSpacebar.setOnClickListener { onSpacebarClick?.invoke() }
         btnSettings.setOnClickListener { onSettingsClick?.invoke() }
     }

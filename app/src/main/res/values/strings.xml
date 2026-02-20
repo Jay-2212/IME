@@ -92,4 +92,9 @@
     <string name="error_rate_limit">Too many requests. Retrying in %1$d seconds…</string>
     <string name="error_file_too_large">Recording too long. Please keep recordings under 5 minutes.</string>
     <string name="error_audio_hardware">Microphone unavailable. Please check app permissions.</string>
+
+    <!-- Recording Interruption Errors (TSD Section 5.2) -->
+    <string name="error_recording_interrupted_call">Recording stopped — phone call detected</string>
+    <string name="error_recording_interrupted_bluetooth">Recording stopped — Bluetooth audio changed</string>
+    <string name="error_recording_interrupted_memory">Recording stopped — low memory</string>
 </resources>
