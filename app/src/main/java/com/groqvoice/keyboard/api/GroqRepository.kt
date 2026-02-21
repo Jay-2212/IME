@@ -3,6 +3,7 @@ package com.groqvoice.keyboard.api
 import com.groqvoice.keyboard.model.TranscriptionResponse
 import com.groqvoice.keyboard.model.TranscriptionResult
 import com.groqvoice.keyboard.utils.FileCacheManager
+import com.squareup.moshi.JsonDataException
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -213,6 +214,16 @@ class GroqRepository(
                     return TranscriptionResult.Failure(
                         message = "Network error: ${io.message ?: "Unable to reach Groq."}"
                     )
+                } catch (exception: Exception) {
+                    return if (exception is JsonDataException) {
+                        TranscriptionResult.Failure(
+                            message = "Unexpected transcription response format."
+                        )
+                    } else {
+                        TranscriptionResult.Failure(
+                            message = "Transcription failed unexpectedly."
+                        )
+                    }
                 }
             }
 

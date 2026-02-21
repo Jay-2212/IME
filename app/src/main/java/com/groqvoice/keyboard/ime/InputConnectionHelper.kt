@@ -24,8 +24,14 @@ object InputConnectionHelper {
      * @param text Finalized transcription text to insert.
      */
     fun commitTranscription(ic: InputConnection, text: String) {
-        ic.finishComposingText()
-        ic.commitText(text, 1)
+        ic.beginBatchEdit()
+        try {
+            // Commit first so any active composing span is replaced rather than committed as text.
+            ic.commitText(text, 1)
+            ic.finishComposingText()
+        } finally {
+            ic.endBatchEdit()
+        }
     }
 
     /**
@@ -40,7 +46,14 @@ object InputConnectionHelper {
      * Clears any active composing text (e.g. on error or cancel).
      */
     fun clearComposing(ic: InputConnection) {
-        ic.finishComposingText()
+        ic.beginBatchEdit()
+        try {
+            // Explicitly replace composing content with empty text before finishing.
+            ic.setComposingText("", 1)
+            ic.finishComposingText()
+        } finally {
+            ic.endBatchEdit()
+        }
     }
 
     /**

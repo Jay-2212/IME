@@ -17,6 +17,7 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
+import com.google.android.material.color.DynamicColors
 import com.groqvoice.keyboard.BuildConfig
 import com.groqvoice.keyboard.R
 import com.groqvoice.keyboard.api.AndroidNetworkStatusProvider
@@ -61,9 +62,12 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
     private var touchDownTimeMs = 0L
     private var lastMicInteractionMs = 0L
     private var ignoreCurrentMicTouch = false
+    private var didStartPushToTalkForTouch = false
     private var lastSpaceMs = 0L
     private val handsFreeRunnable = Runnable {
-        // Reserved hook for future long-hold visual feedback while user keeps pressing.
+        if (ignoreCurrentMicTouch || shouldBlockVoiceInput()) return@Runnable
+        didStartPushToTalkForTouch = true
+        audioManager.startRecording(RecordingMode.PUSH_TO_TALK)
     }
 
     private val backspaceRepeatRunnable = object : Runnable {
@@ -103,7 +107,8 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
     }
 
     override fun onCreateInputView(): View {
-        val themedContext = ContextThemeWrapper(this, R.style.Theme_GroqVoiceKeyboard)
+        val dynamicContext = DynamicColors.wrapContextIfAvailable(this)
+        val themedContext = ContextThemeWrapper(dynamicContext, R.style.Theme_GroqVoiceKeyboard)
         keyboardView = KeyboardView(themedContext).also { view ->
             wireMicButton(view)
             wireBackspaceButton(view)
@@ -164,27 +169,16 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
                         lastMicInteractionMs = now
 
                         touchDownTimeMs = System.currentTimeMillis()
-                        mainHandler.postDelayed(handsFreeRunnable, AudioRecordingManager.HOLD_THRESHOLD_MS)
+                        didStartPushToTalkForTouch = false
 
-                        val blocked = when {
-                            isPasswordField -> {
-                                keyboardView?.showBanner(getString(R.string.banner_voice_disabled_security))
-                                true
-                            }
-                            isIncognitoMode -> {
-                                keyboardView?.showBanner(getString(R.string.banner_incognito_warning))
-                                true
-                            }
-                            !securePrefs.hasApiKey() -> {
-                                keyboardView?.showBanner(getString(R.string.banner_no_api_key))
-                                true
-                            }
-                            else -> false
-                        }
-
-                        if (!blocked) {
+                        if (shouldBlockVoiceInput()) {
+                            showVoiceInputBlockedBanner()
+                        } else {
                             performHaptic()
-                            audioManager.startRecording(RecordingMode.PUSH_TO_TALK)
+                            mainHandler.postDelayed(
+                                handsFreeRunnable,
+                                AudioRecordingManager.HOLD_THRESHOLD_MS
+                            )
                         }
                         true
                     }
@@ -194,10 +188,10 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
                     mainHandler.removeCallbacks(handsFreeRunnable)
                     if (ignoreCurrentMicTouch) {
                         ignoreCurrentMicTouch = false
+                        didStartPushToTalkForTouch = false
                         true
                     } else {
-                        val blocked = isPasswordField || isIncognitoMode || !securePrefs.hasApiKey()
-                        if (!blocked) {
+                        if (!shouldBlockVoiceInput()) {
                             val durationMs = System.currentTimeMillis() - touchDownTimeMs
 
                             if (durationMs < AudioRecordingManager.HOLD_THRESHOLD_MS) {
@@ -208,13 +202,13 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
                                 if (isHandsFreeRunning) {
                                     audioManager.stopRecording()
                                 } else {
-                                    audioManager.cancelRecordingForModeSwitch()
                                     audioManager.startRecording(RecordingMode.HANDS_FREE)
                                 }
-                            } else {
+                            } else if (didStartPushToTalkForTouch) {
                                 audioManager.stopRecording()
                             }
                         }
+                        didStartPushToTalkForTouch = false
                         true
                     }
                 }
@@ -222,7 +216,10 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
                 MotionEvent.ACTION_CANCEL -> {
                     mainHandler.removeCallbacks(handsFreeRunnable)
                     ignoreCurrentMicTouch = false
-                    audioManager.cancelRecordingForModeSwitch()
+                    if (didStartPushToTalkForTouch) {
+                        audioManager.cancelRecordingForModeSwitch()
+                    }
+                    didStartPushToTalkForTouch = false
                     true
                 }
 
@@ -261,57 +258,59 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
         audioManager.state
             .onEach { state ->
                 keyboardView?.applyState(state)
-                if (state is RecordingState.Processing) {
-                    currentInputConnection?.let { ic ->
-                        InputConnectionHelper.setComposingTranscription(ic, "…")
-                    }
-                }
             }
             .launchIn(serviceScope)
 
         audioManager.onRecordingComplete = { audioFile ->
             serviceScope.launch(Dispatchers.IO) {
-                val result = groqRepository.transcribe(
-                    audioFile = audioFile,
-                    model = securePrefs.getModel()
-                )
+                try {
+                    val result = groqRepository.transcribe(
+                        audioFile = audioFile,
+                        model = securePrefs.getModel()
+                    )
 
-                serviceScope.launch(Dispatchers.Main) {
-                    val ic = currentInputConnection
-                    when (result) {
-                        is TranscriptionResult.Success -> {
-                            ic?.let { InputConnectionHelper.commitTranscription(it, result.text) }
-                            if (result.isPartial) {
-                                keyboardView?.showBanner(
-                                    result.warning ?: getString(R.string.banner_partial_transcription)
-                                )
-                            } else {
-                                keyboardView?.hideBanner()
-                                keyboardView?.playSuccessAnimation()
+                    serviceScope.launch(Dispatchers.Main) {
+                        val ic = currentInputConnection
+                        when (result) {
+                            is TranscriptionResult.Success -> {
+                                ic?.let { InputConnectionHelper.commitTranscription(it, result.text) }
+                                if (result.isPartial) {
+                                    keyboardView?.showBanner(
+                                        result.warning ?: getString(R.string.banner_partial_transcription)
+                                    )
+                                } else {
+                                    keyboardView?.hideBanner()
+                                    keyboardView?.playSuccessAnimation()
+                                }
+                                auditLogger.logTranscription()
+                                audioManager.completeProcessing()
                             }
-                            auditLogger.logTranscription()
-                            keyboardView?.applyState(RecordingState.Idle)
-                        }
 
-                        is TranscriptionResult.Queued -> {
-                            ic?.let { InputConnectionHelper.clearComposing(it) }
-                            keyboardView?.showBanner(getString(R.string.banner_no_network))
-                            keyboardView?.applyState(RecordingState.Idle)
-                        }
+                            is TranscriptionResult.Queued -> {
+                                ic?.let { InputConnectionHelper.clearComposing(it) }
+                                keyboardView?.showBanner(getString(R.string.banner_no_network))
+                                audioManager.completeProcessing()
+                            }
 
-                        is TranscriptionResult.Failure -> {
-                            ic?.let { InputConnectionHelper.clearComposing(it) }
-                            if (result.httpCode == 401) {
-                                securePrefs.clearApiKey()
-                                openOnboarding()
-                                keyboardView?.showBanner(getString(R.string.banner_no_api_key))
-                            } else if (result.isQuotaExceeded) {
-                                keyboardView?.showBanner(getString(R.string.banner_quota_exceeded))
-                                keyboardView?.applyState(RecordingState.Error(result.message))
-                            } else {
-                                showTransientError(result.message)
+                            is TranscriptionResult.Failure -> {
+                                ic?.let { InputConnectionHelper.clearComposing(it) }
+                                if (result.httpCode == 401) {
+                                    securePrefs.clearApiKey()
+                                    openOnboarding()
+                                    keyboardView?.showBanner(getString(R.string.banner_no_api_key))
+                                    audioManager.completeProcessing()
+                                } else if (result.isQuotaExceeded) {
+                                    showTransientError(getString(R.string.banner_quota_exceeded))
+                                } else {
+                                    showTransientError(result.message)
+                                }
                             }
                         }
+                    }
+                } catch (_: Exception) {
+                    serviceScope.launch(Dispatchers.Main) {
+                        currentInputConnection?.let { InputConnectionHelper.clearComposing(it) }
+                        showTransientError("Transcription failed unexpectedly.")
                     }
                 }
             }
@@ -345,10 +344,26 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
         mainHandler.postDelayed(
             {
                 keyboardView?.hideBanner()
+                audioManager.completeProcessing()
                 keyboardView?.applyState(RecordingState.Idle)
             },
             3_000L
         )
+    }
+
+    private fun shouldBlockVoiceInput(): Boolean {
+        return isPasswordField || isIncognitoMode || !securePrefs.hasApiKey()
+    }
+
+    private fun showVoiceInputBlockedBanner() {
+        when {
+            isPasswordField ->
+                keyboardView?.showBanner(getString(R.string.banner_voice_disabled_security))
+            isIncognitoMode ->
+                keyboardView?.showBanner(getString(R.string.banner_incognito_warning))
+            !securePrefs.hasApiKey() ->
+                keyboardView?.showBanner(getString(R.string.banner_no_api_key))
+        }
     }
 
     private fun registerAudioRoutingReceiver() {

@@ -55,6 +55,7 @@
             android:name=".ui.settings.SettingsActivity"
             android:exported="false"
             android:label="@string/settings_title"
+            android:theme="@style/Theme.GroqVoiceKeyboard.Settings"
             android:parentActivityName=".ui.onboarding.WelcomeActivity" />
 
     </application>

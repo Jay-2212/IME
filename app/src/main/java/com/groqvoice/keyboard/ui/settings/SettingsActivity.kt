@@ -3,10 +3,12 @@ package com.groqvoice.keyboard.ui.settings
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
+import com.google.android.material.color.MaterialColors
 import com.groqvoice.keyboard.R
 import com.groqvoice.keyboard.databinding.ActivitySettingsBinding
 import com.groqvoice.keyboard.utils.AuditLogger
@@ -134,6 +136,16 @@ class SettingsActivity : AppCompatActivity() {
                     }
                     true
                 }
+        }
+
+        override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+            super.onViewCreated(view, savedInstanceState)
+            listView.setBackgroundColor(
+                MaterialColors.getColor(
+                    view,
+                    com.google.android.material.R.attr.colorSurface
+                )
+            )
         }
     }
 }

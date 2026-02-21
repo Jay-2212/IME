@@ -3,6 +3,7 @@ package com.groqvoice.keyboard.ime
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.content.res.ColorStateList
 import android.content.Context
 import android.util.AttributeSet
 import android.view.LayoutInflater
@@ -11,6 +12,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.TextView
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.color.MaterialColors
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.groqvoice.keyboard.R
 import com.groqvoice.keyboard.model.RecordingMode
@@ -121,20 +123,50 @@ class KeyboardView @JvmOverloads constructor(
 
         when (state) {
             is RecordingState.Idle -> {
-                btnMic.backgroundTintList =
-                    context.getColorStateList(R.color.accent_secondary)
+                btnMic.backgroundTintList = ColorStateList.valueOf(
+                    resolveColor(
+                        com.google.android.material.R.attr.colorSecondary,
+                        R.color.accent_secondary
+                    )
+                )
+                btnMic.imageTintList = ColorStateList.valueOf(
+                    resolveColor(
+                        com.google.android.material.R.attr.colorOnSecondary,
+                        R.color.on_accent_secondary
+                    )
+                )
                 stateLabel.text = context.getString(R.string.state_idle)
-                stateLabel.setTextColor(context.getColor(R.color.disabled))
+                stateLabel.setTextColor(
+                    resolveColor(
+                        com.google.android.material.R.attr.colorOnSurface,
+                        R.color.text_primary
+                    )
+                )
                 transcriptionPreviewContainer.visibility = View.GONE
                 startPulseAnimation(minScale = 0.95f, maxScale = 1.05f, durationMs = 1_000L)
             }
             is RecordingState.Recording -> {
                 val labelRes = if (state.mode == RecordingMode.HANDS_FREE)
                     R.string.state_hands_free else R.string.state_recording
-                btnMic.backgroundTintList =
-                    context.getColorStateList(R.color.accent_primary)
+                btnMic.backgroundTintList = ColorStateList.valueOf(
+                    resolveColor(
+                        com.google.android.material.R.attr.colorPrimary,
+                        R.color.accent_primary
+                    )
+                )
+                btnMic.imageTintList = ColorStateList.valueOf(
+                    resolveColor(
+                        com.google.android.material.R.attr.colorOnPrimary,
+                        R.color.on_accent_primary
+                    )
+                )
                 stateLabel.text = context.getString(labelRes)
-                stateLabel.setTextColor(context.getColor(R.color.accent_primary))
+                stateLabel.setTextColor(
+                    resolveColor(
+                        com.google.android.material.R.attr.colorPrimary,
+                        R.color.accent_primary
+                    )
+                )
 
                 if (state.mode == RecordingMode.PUSH_TO_TALK) {
                     btnMic.animate().scaleX(1.1f).scaleY(1.1f).setDuration(200).start()
@@ -143,16 +175,46 @@ class KeyboardView @JvmOverloads constructor(
                 }
             }
             is RecordingState.Processing -> {
-                btnMic.backgroundTintList =
-                    context.getColorStateList(R.color.disabled)
+                btnMic.backgroundTintList = ColorStateList.valueOf(
+                    resolveColor(
+                        com.google.android.material.R.attr.colorSurface,
+                        R.color.surface
+                    )
+                )
+                btnMic.imageTintList = ColorStateList.valueOf(
+                    resolveColor(
+                        com.google.android.material.R.attr.colorOnSurface,
+                        R.color.text_primary
+                    )
+                )
                 stateLabel.text = context.getString(R.string.state_processing)
-                stateLabel.setTextColor(context.getColor(R.color.disabled))
+                stateLabel.setTextColor(
+                    resolveColor(
+                        com.google.android.material.R.attr.colorOnSurface,
+                        R.color.text_primary
+                    )
+                )
             }
             is RecordingState.Error -> {
-                btnMic.backgroundTintList =
-                    context.getColorStateList(R.color.error)
+                btnMic.backgroundTintList = ColorStateList.valueOf(
+                    resolveColor(
+                        com.google.android.material.R.attr.colorError,
+                        R.color.error
+                    )
+                )
+                btnMic.imageTintList = ColorStateList.valueOf(
+                    resolveColor(
+                        com.google.android.material.R.attr.colorOnError,
+                        R.color.on_error
+                    )
+                )
                 stateLabel.text = context.getString(R.string.state_error)
-                stateLabel.setTextColor(context.getColor(R.color.error))
+                stateLabel.setTextColor(
+                    resolveColor(
+                        com.google.android.material.R.attr.colorError,
+                        R.color.error
+                    )
+                )
                 showBanner(state.message)
                 playShakeAnimation()
             }
@@ -280,5 +342,10 @@ class KeyboardView @JvmOverloads constructor(
                     .start()
             }
             .start()
+    }
+
+    private fun resolveColor(attr: Int, fallbackColorRes: Int): Int {
+        val fallback = context.getColor(fallbackColorRes)
+        return MaterialColors.getColor(this, attr, fallback)
     }
 }

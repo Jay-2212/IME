@@ -43,8 +43,10 @@ class VoiceActivityDetectorTest {
             silenceDurationMs = 500L,
             sampleRateHz = 16_000
         )
+        val loudChunk = ByteArray(3200) { i -> if (i % 2 == 0) 0xFF.toByte() else 0x7F.toByte() }
         // Feed 500ms of near-silence (amplitude = 1, well below threshold of 100)
         val silentChunk = ByteArray(16_000) { i -> if (i % 2 == 0) 0x01.toByte() else 0x00.toByte() }
+        vad.isSilence(loudChunk)
         assertTrue(vad.isSilence(silentChunk))
     }
 
@@ -55,10 +57,23 @@ class VoiceActivityDetectorTest {
             silenceDurationMs = 500L,
             sampleRateHz = 16_000
         )
+        val loudChunk = ByteArray(3200) { i -> if (i % 2 == 0) 0xFF.toByte() else 0x7F.toByte() }
         val silentChunk = ByteArray(16_000) { i -> if (i % 2 == 0) 0x01.toByte() else 0x00.toByte() }
+        vad.isSilence(loudChunk)
         vad.isSilence(silentChunk) // Accumulate silence
         vad.reset()
         // After reset, the same chunk should NOT immediately trigger (starts from 0)
         assertFalse(vad.isSilence(ByteArray(100))) // Very small chunk, not enough for 500ms
+    }
+
+    @Test
+    fun `isSilence does not trigger before first speech`() {
+        val vad = VoiceActivityDetector(
+            silenceThresholdRms = 100.0,
+            silenceDurationMs = 500L,
+            sampleRateHz = 16_000
+        )
+        val silentChunk = ByteArray(16_000) { i -> if (i % 2 == 0) 0x01.toByte() else 0x00.toByte() }
+        assertFalse(vad.isSilence(silentChunk))
     }
 }

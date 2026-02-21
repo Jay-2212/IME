@@ -21,11 +21,23 @@ class InputConnectionHelperTest {
     // ── commitTranscription ────────────────────────────────────────────────────
 
     @Test
-    fun `commitTranscription finishes composing then commits text`() {
+    fun `commitTranscription commits text and clears composing`() {
         val ic: InputConnection = mock()
         InputConnectionHelper.commitTranscription(ic, "hello world")
-        verify(ic).finishComposingText()
+        verify(ic).beginBatchEdit()
         verify(ic).commitText("hello world", 1)
+        verify(ic).finishComposingText()
+        verify(ic).endBatchEdit()
+    }
+
+    @Test
+    fun `clearComposing replaces composing text with empty value`() {
+        val ic: InputConnection = mock()
+        InputConnectionHelper.clearComposing(ic)
+        verify(ic).beginBatchEdit()
+        verify(ic).setComposingText("", 1)
+        verify(ic).finishComposingText()
+        verify(ic).endBatchEdit()
     }
 
     // ── deleteCharacter ────────────────────────────────────────────────────────

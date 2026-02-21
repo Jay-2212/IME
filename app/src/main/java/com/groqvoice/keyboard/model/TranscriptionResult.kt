@@ -30,8 +30,8 @@ data class TranscriptionResponse(
  */
 @JsonClass(generateAdapter = true)
 data class GroqMetadata(
-    val id: String,
-    val usage: UsageStats
+    val id: String? = null,
+    val usage: UsageStats? = null
 )
 
 /**
@@ -39,13 +39,13 @@ data class GroqMetadata(
  */
 @JsonClass(generateAdapter = true)
 data class UsageStats(
-    @Json(name = "queue_time") val queueTime: Double,
-    @Json(name = "prompt_tokens") val promptTokens: Int,
-    @Json(name = "prompt_time") val promptTime: Double,
-    @Json(name = "completion_tokens") val completionTokens: Int,
-    @Json(name = "completion_time") val completionTime: Double,
-    @Json(name = "total_tokens") val totalTokens: Int,
-    @Json(name = "total_time") val totalTime: Double
+    @Json(name = "queue_time") val queueTime: Double? = null,
+    @Json(name = "prompt_tokens") val promptTokens: Int? = null,
+    @Json(name = "prompt_time") val promptTime: Double? = null,
+    @Json(name = "completion_tokens") val completionTokens: Int? = null,
+    @Json(name = "completion_time") val completionTime: Double? = null,
+    @Json(name = "total_tokens") val totalTokens: Int? = null,
+    @Json(name = "total_time") val totalTime: Double? = null
 )
 
 /**

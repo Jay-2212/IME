@@ -10,7 +10,7 @@
     android:id="@+id/onboarding_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/keyboard_background">
+    android:background="?android:colorBackground">
 
     <!-- ViewPager2 — holds 3 onboarding fragments -->
     <androidx.viewpager2.widget.ViewPager2

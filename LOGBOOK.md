@@ -665,3 +665,238 @@ Phase 4 successfully bridges the gap between raw functionality and a premium use
 
 **Signed:** Codex  
 **Date (UTC):** 2026-02-21T03:08:37Z
+
+---
+
+## Entry 7
+
+**Timestamp:** 2026-02-21T04:44:41Z
+
+**Current Phase:** Functional Stabilization (Mic + Transcription Reliability)
+
+**Agent:** Codex
+
+**Status:** COMPLETE (functional), UI polish pending
+
+### Problem Summary (User-Observed)
+
+- Mic interaction initially failed to start reliably.
+- After initial fixes, transcription worked once, then failed on second/third attempts.
+- Keyboard process crashed after stopping recording in some runs.
+- Text field showed leftover processing characters (`...`) before committed transcription.
+
+### Root Causes Confirmed
+
+1. **Post-stop crash in transcription parsing**
+   - Runtime logs showed:
+     - `JsonDataException: Required value 'usage' missing at $.x_groq`
+   - The model expected `x_groq.usage` as non-null; some Groq responses omitted this object.
+   - Exception occurred in Retrofit/Moshi parsing thread, killing IME process.
+
+2. **Recording state stuck after first successful transcription**
+   - `AudioRecordingManager` remained in `RecordingState.Processing` after result handling.
+   - `startRecording()` only allows start from `Idle`, so next recordings were blocked.
+
+3. **Composing-text artifact in editor (`...`)**
+   - Processing UI/composing behavior could leave visible placeholder characters in the target input field.
+
+4. **Mic touch flow race/routing sensitivity**
+   - Initial touch flow had a mode-switch race (`PUSH_TO_TALK` start then cancel/restart).
+   - Hands-free stop logic and routing interruption behavior needed hardening for real-device behavior.
+
+### Fixes Applied
+
+#### A) Mic interaction and recording lifecycle hardening
+
+- `app/src/main/java/com/groqvoice/keyboard/ime/VoiceInputMethodService.kt`
+  - Reworked touch flow:
+    - Tap toggles hands-free directly.
+    - Hold starts PTT via delayed runnable.
+    - Release stops only if PTT actually started.
+  - Centralized block checks (`password/incognito/no API key`) and banners.
+
+- `app/src/main/java/com/groqvoice/keyboard/audio/VoiceActivityDetector.kt`
+  - Hands-free silence stop now starts only **after first detected speech**, preventing immediate auto-stop before user speaks.
+
+- `app/src/main/java/com/groqvoice/keyboard/audio/AudioRecordingManager.kt`
+  - Routing interruption logic now reacts only to **actual state transitions** (baseline broadcast ignored).
+
+#### B) Crash-proofing transcription path
+
+- `app/src/main/java/com/groqvoice/keyboard/model/TranscriptionResult.kt`
+  - Made metadata tolerant to partial responses:
+    - `GroqMetadata.id` nullable
+    - `GroqMetadata.usage` nullable
+    - `UsageStats` fields nullable
+
+- `app/src/main/java/com/groqvoice/keyboard/api/GroqRepository.kt`
+  - Added catch for non-IO exceptions (including `JsonDataException`) in `transcribe()`.
+  - Returns `TranscriptionResult.Failure(...)` instead of allowing process crash.
+
+- `app/src/main/java/com/groqvoice/keyboard/ime/VoiceInputMethodService.kt`
+  - Added defensive `try/catch` around async transcription callback handling.
+
+#### C) Fix for second/third recording attempts
+
+- `app/src/main/java/com/groqvoice/keyboard/audio/AudioRecordingManager.kt`
+  - Added `completeProcessing()` to transition `Processing/Error -> Idle` once result handling is done.
+
+- `app/src/main/java/com/groqvoice/keyboard/ime/VoiceInputMethodService.kt`
+  - Calls `audioManager.completeProcessing()` after success/queued/failure result handling and transient error timeout.
+
+#### D) Remove `...` text artifact behavior
+
+- `app/src/main/java/com/groqvoice/keyboard/ime/VoiceInputMethodService.kt`
+  - Removed composing-text injection during `RecordingState.Processing`.
+
+- `app/src/main/java/com/groqvoice/keyboard/ime/InputConnectionHelper.kt`
+  - Hardened compose lifecycle:
+    - `commitTranscription()` uses batch edit and clears composing span cleanly.
+    - `clearComposing()` explicitly replaces composing content with empty text then finishes composing.
+
+### Test/Verification Updates
+
+- `./gradlew testDebugUnitTest` passed after each stabilization pass.
+- `./gradlew installDebug` passed and installed on device `SM-S928B`.
+- Added/updated regression tests:
+  - `app/src/test/java/com/groqvoice/keyboard/model/TranscriptionResponseParsingTest.kt`
+    - Verifies parsing when `x_groq.usage` is missing.
+  - `app/src/test/java/com/groqvoice/keyboard/api/GroqRepositoryTranscribeTest.kt`
+    - Verifies unexpected runtime exception maps to failure, no crash.
+  - `app/src/test/java/com/groqvoice/keyboard/audio/VoiceActivityDetectorTest.kt`
+    - Verifies silence logic does not trigger before first speech.
+  - `app/src/test/java/com/groqvoice/keyboard/ime/InputConnectionHelperTest.kt`
+    - Verifies commit/clear composing lifecycle behavior.
+
+### Future Issue Handling Runbook (Operational)
+
+When mic/transcription regressions reappear, follow this order:
+
+1. **Capture crash signature first**
+   - Command:
+     - `/Users/jaybharti/Library/Android/sdk/platform-tools/adb logcat -d -v threadtime | rg -n "FATAL EXCEPTION|AndroidRuntime|com.groqvoice.keyboard.debug|VoiceInputMethodService|GroqRepository|AudioRecordingManager"`
+   - If process dies, fix crash root cause before UI tuning.
+
+2. **Check state-machine lockups**
+   - Symptom: works once then no recording.
+   - Verify state exits `Processing`/`Error` back to `Idle`.
+   - Confirm all result paths invoke `completeProcessing()`.
+
+3. **Check editor artifact behavior**
+   - Symptom: leftover dots/placeholder text.
+   - Verify no processing placeholder text is injected.
+   - Ensure composing lifecycle uses `clearComposing()` and batch edits.
+
+4. **Check touch/routing interruptions**
+   - Symptom: tap starts then immediately stops.
+   - Validate no false interruption from SCO/headset baseline broadcasts.
+   - Recheck touch debounce and hold/tap thresholds.
+
+5. **Network/API response safety**
+   - Treat metadata as optional.
+   - Never allow parsing exceptions to crash IME process.
+   - Keep repository exception-to-failure mapping intact.
+
+### Handoff to Next Task (UI / QoL)
+
+- Functional baseline is now stable enough for UI iteration.
+- Next focus:
+  1. Improve color palette, contrast, and visual hierarchy (keyboard + settings).
+  2. Fix mic icon centering/sizing consistency.
+  3. Refine animation timings and states for premium feel.
+  4. Keep functional regression checks on every visual pass (multi-recording cycles).
+
+**Signed:** Codex  
+**Date (UTC):** 2026-02-21T04:44:41Z
+
+---
+
+## Entry 8
+
+**Timestamp:** 2026-02-21T05:03:28Z
+
+**Current Phase:** UI Visual Overhaul (Material You Direction)
+
+**Agent:** Codex
+
+**Status:** PARTIAL COMPLETE (palette/theme improved, alignment pass still pending)
+
+### What Was Completed
+
+1. **Material You-style theming foundation**
+   - Enabled dynamic color application for Activities:
+     - `app/src/main/java/com/groqvoice/keyboard/GroqVoiceApplication.kt`
+   - Wrapped IME input view context with dynamic color when available:
+     - `app/src/main/java/com/groqvoice/keyboard/ime/VoiceInputMethodService.kt`
+
+2. **Modern palette refresh**
+   - Replaced old dark-purple-heavy palette with cleaner modern fallback palette:
+     - `app/src/main/res/values/colors.xml`
+   - Added proper night fallback palette:
+     - `app/src/main/res/values-night/colors.xml`
+
+3. **Theme and Settings contrast cleanup**
+   - Reworked app/settings theme mapping for readable text and category contrast:
+     - `app/src/main/res/values/themes.xml`
+   - Forced settings activity to use settings theme:
+     - `app/src/main/AndroidManifest.xml`
+   - Updated toolbar/background tint usage and list background handling:
+     - `app/src/main/res/layout/activity_settings.xml`
+     - `app/src/main/java/com/groqvoice/keyboard/ui/settings/SettingsActivity.kt`
+   - Updated onboarding host background to theme-aware background:
+     - `app/src/main/res/layout/activity_welcome.xml`
+
+4. **Mic visual asset + size tuning**
+   - Added new mic vector icon:
+     - `app/src/main/res/drawable/ic_mic_material.xml`
+   - Tuned mic button and icon size:
+     - `app/src/main/res/values/dimens.xml`
+   - Updated keyboard layout and icon usage:
+     - `app/src/main/res/layout/keyboard_view.xml`
+   - Updated runtime state colors in keyboard view for theme consistency:
+     - `app/src/main/java/com/groqvoice/keyboard/ime/KeyboardView.kt`
+
+5. **Back icon cleanup**
+   - Updated back icon drawable for cleaner toolbar rendering:
+     - `app/src/main/res/drawable/ic_back.xml`
+
+### Validation
+
+- `./gradlew testDebugUnitTest` passed.
+- `./gradlew installDebug` passed.
+- Installed successfully on device `SM-S928B`.
+
+### Known Remaining UI Issue (User-Confirmed)
+
+- **Mic icon is still not visually centered in the circular FAB**.
+- User accepted color direction for now; next priority is alignment polish across keyboard controls.
+
+### Recommended Next Agent Tasks
+
+1. **Mic centering fix (first priority)**
+   - Inspect `ic_mic_material.xml` viewport/path bounds and balance optically.
+   - Validate `FloatingActionButton` image inset behavior on Samsung One UI (may need icon redraw vs size-only tweak).
+   - Recheck `app:maxImageSize`, `mic_icon_size`, and potential padding offsets.
+
+2. **Global control alignment pass**
+   - Align baseline and spacing for:
+     - mic button
+     - backspace
+     - settings gear
+     - spacebar
+   - Confirm consistent vertical centering across different DPI/screen scales.
+
+3. **Polish pass**
+   - Fine-tune typography scale and weights in settings preference rows and keyboard labels.
+   - Keep current functional recording/transcription stability unchanged while tuning visuals.
+
+### Guardrails For Next Agent
+
+- Do not regress mic recording lifecycle fixes from Entry 7 (state reset + no composing text artifacts).
+- Verify at least 3 consecutive record/transcribe cycles after any keyboard UI edit.
+- If UI-only changes touch `KeyboardView`/`VoiceInputMethodService`, rerun:
+  - `./gradlew testDebugUnitTest`
+  - `./gradlew installDebug`
+
+**Signed:** Codex  
+**Date (UTC):** 2026-02-21T05:03:28Z

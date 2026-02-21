@@ -37,6 +37,7 @@ class VoiceActivityDetector(
     }
 
     private var silentMs = 0L
+    private var hasDetectedSpeech = false
 
     /**
      * Feed a raw 16-bit PCM [chunk] (little-endian byte array).
@@ -47,11 +48,18 @@ class VoiceActivityDetector(
         val rms = computeRms(chunk)
         val chunkDurationMs = (chunk.size.toLong() * 1000L) / (sampleRateHz * 2L) // 2 bytes/sample
 
-        if (rms < silenceThresholdRms) {
-            silentMs += chunkDurationMs
-        } else {
-            silentMs = 0L // Reset on speech activity
+        if (rms >= silenceThresholdRms) {
+            hasDetectedSpeech = true
+            silentMs = 0L
+            return false
         }
+
+        if (!hasDetectedSpeech) {
+            // Avoid instant hands-free stop before the user starts speaking.
+            return false
+        }
+
+        silentMs += chunkDurationMs
 
         return silentMs >= silenceDurationMs
     }
@@ -59,6 +67,7 @@ class VoiceActivityDetector(
     /** Resets the internal silence accumulator. Call when a new recording starts. */
     fun reset() {
         silentMs = 0L
+        hasDetectedSpeech = false
     }
 
     /**

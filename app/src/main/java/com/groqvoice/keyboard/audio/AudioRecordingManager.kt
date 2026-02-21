@@ -88,10 +88,24 @@ class AudioRecordingManager(
     private var phoneStateListener: PhoneStateListener? = null
 
     private var audioRoutingReceiver: BroadcastReceiver? = null
+    private var lastScoAudioState: Int? = null
+    private var lastHeadsetPlugState: Int? = null
 
     var onRecordingComplete: ((File) -> Unit)? = null
     var onError: ((String) -> Unit)? = null
     var onInterrupted: ((InterruptionReason) -> Unit)? = null
+
+    /**
+     * Marks processing as complete so a new recording session can start.
+     *
+     * The IME service calls this after a transcription result (success/failure/queued) has been
+     * handled on the UI side.
+     */
+    fun completeProcessing() {
+        if (_state.value is RecordingState.Processing || _state.value is RecordingState.Error) {
+            _state.value = RecordingState.Idle
+        }
+    }
 
     /**
      * Starts a new recording session.
@@ -379,11 +393,31 @@ class AudioRecordingManager(
             audioRoutingReceiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {
                     when (intent.action) {
-                        AudioManager.ACTION_SCO_AUDIO_STATE_UPDATED,
-                        AudioManager.ACTION_HEADSET_PLUG,
+                        AudioManager.ACTION_SCO_AUDIO_STATE_UPDATED -> {
+                            val scoState = intent.getIntExtra(
+                                AudioManager.EXTRA_SCO_AUDIO_STATE,
+                                AudioManager.SCO_AUDIO_STATE_ERROR
+                            )
+                            if (scoState == AudioManager.SCO_AUDIO_STATE_ERROR) return
+
+                            val previous = lastScoAudioState
+                            lastScoAudioState = scoState
+                            if (previous != null && previous != scoState) {
+                                scope.launch(Dispatchers.Main) {
+                                    stopForInterruption(InterruptionReason.BLUETOOTH_ROUTING_CHANGE)
+                                }
+                            }
+                        }
                         Intent.ACTION_HEADSET_PLUG -> {
-                            scope.launch(Dispatchers.Main) {
-                                stopForInterruption(InterruptionReason.BLUETOOTH_ROUTING_CHANGE)
+                            val headsetState = intent.getIntExtra("state", -1)
+                            if (headsetState == -1) return
+
+                            val previous = lastHeadsetPlugState
+                            lastHeadsetPlugState = headsetState
+                            if (previous != null && previous != headsetState) {
+                                scope.launch(Dispatchers.Main) {
+                                    stopForInterruption(InterruptionReason.BLUETOOTH_ROUTING_CHANGE)
+                                }
                             }
                         }
                     }
@@ -391,9 +425,11 @@ class AudioRecordingManager(
             }
         }
 
+        lastScoAudioState = null
+        lastHeadsetPlugState = null
+
         val filter = IntentFilter().apply {
             addAction(AudioManager.ACTION_SCO_AUDIO_STATE_UPDATED)
-            addAction(AudioManager.ACTION_HEADSET_PLUG)
             addAction(Intent.ACTION_HEADSET_PLUG)
         }
 
@@ -423,6 +459,8 @@ class AudioRecordingManager(
             }
         }
         audioRoutingReceiver = null
+        lastScoAudioState = null
+        lastHeadsetPlugState = null
     }
 
     private fun stopAudioRecordSafely() {

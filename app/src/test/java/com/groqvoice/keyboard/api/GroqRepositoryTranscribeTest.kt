@@ -85,6 +85,26 @@ class GroqRepositoryTranscribeTest {
         assertTrue(file.delete())
     }
 
+    @Test
+    fun `transcribe returns failure for unexpected runtime exception and deletes temp file`() = runBlocking {
+        val api = FakeGroqApiService(
+            transcribeCall = {
+                throw IllegalStateException("boom")
+            }
+        )
+        val file = createTempAudioFile()
+        val repository = buildRepository(api)
+
+        val result = repository.transcribe(file, shouldQueueOnNetworkFailure = false)
+
+        assertTrue(result is TranscriptionResult.Failure)
+        assertEquals(
+            "Transcription failed unexpectedly.",
+            (result as TranscriptionResult.Failure).message
+        )
+        assertFalse(file.exists())
+    }
+
     private fun buildRepository(
         api: GroqApiService,
         retryScheduler: TranscriptionRetryScheduler? = null,

@@ -8,8 +8,8 @@
     <dimen name="keyboard_padding_vertical">20dp</dimen>
 
     <!-- Mic button -->
-    <dimen name="mic_button_diameter">120dp</dimen>
-    <dimen name="mic_icon_size">72dp</dimen>
+    <dimen name="mic_button_diameter">112dp</dimen>
+    <dimen name="mic_icon_size">52dp</dimen>
     <dimen name="mic_button_elevation">8dp</dimen>
 
     <!-- Key corners -->
