@@ -362,12 +362,12 @@ class GroqRepository(
     }
 
     @JsonClass(generateAdapter = true)
-    private data class GroqErrorEnvelope(
+    internal data class GroqErrorEnvelope(
         val error: GroqErrorBody? = null
     )
 
     @JsonClass(generateAdapter = true)
-    private data class GroqErrorBody(
+    internal data class GroqErrorBody(
         val message: String? = null
     )
 }

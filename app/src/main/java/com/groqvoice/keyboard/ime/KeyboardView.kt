@@ -122,7 +122,7 @@ class KeyboardView @JvmOverloads constructor(
         when (state) {
             is RecordingState.Idle -> {
                 btnMic.backgroundTintList =
-                    context.getColorStateList(R.color.accent_secondary, null)
+                    context.getColorStateList(R.color.accent_secondary)
                 stateLabel.text = context.getString(R.string.state_idle)
                 stateLabel.setTextColor(context.getColor(R.color.disabled))
                 transcriptionPreviewContainer.visibility = View.GONE
@@ -132,7 +132,7 @@ class KeyboardView @JvmOverloads constructor(
                 val labelRes = if (state.mode == RecordingMode.HANDS_FREE)
                     R.string.state_hands_free else R.string.state_recording
                 btnMic.backgroundTintList =
-                    context.getColorStateList(R.color.accent_primary, null)
+                    context.getColorStateList(R.color.accent_primary)
                 stateLabel.text = context.getString(labelRes)
                 stateLabel.setTextColor(context.getColor(R.color.accent_primary))
 
@@ -144,13 +144,13 @@ class KeyboardView @JvmOverloads constructor(
             }
             is RecordingState.Processing -> {
                 btnMic.backgroundTintList =
-                    context.getColorStateList(R.color.disabled, null)
+                    context.getColorStateList(R.color.disabled)
                 stateLabel.text = context.getString(R.string.state_processing)
                 stateLabel.setTextColor(context.getColor(R.color.disabled))
             }
             is RecordingState.Error -> {
                 btnMic.backgroundTintList =
-                    context.getColorStateList(R.color.error, null)
+                    context.getColorStateList(R.color.error)
                 stateLabel.text = context.getString(R.string.state_error)
                 stateLabel.setTextColor(context.getColor(R.color.error))
                 showBanner(state.message)

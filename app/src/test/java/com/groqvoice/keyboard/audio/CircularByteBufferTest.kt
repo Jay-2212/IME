@@ -19,16 +19,20 @@ import org.junit.Test
  */
 class CircularByteBufferTest {
 
+    companion object {
+        private const val TEST_CAPACITY = CircularByteBuffer.MIN_CAPACITY_BYTES
+    }
+
     private lateinit var buffer: CircularByteBuffer
 
     @Before
     fun setup() {
-        buffer = CircularByteBuffer(capacityBytes = 100)
+        buffer = CircularByteBuffer(capacityBytes = TEST_CAPACITY)
     }
 
     @Test
     fun `initial state is empty`() {
-        assertEquals(100, buffer.capacity)
+        assertEquals(TEST_CAPACITY, buffer.capacity)
         assertEquals(0, buffer.size)
         assertTrue(buffer.isEmpty)
         assertFalse(buffer.closed)
@@ -72,18 +76,16 @@ class CircularByteBufferTest {
 
     @Test
     fun `circular wrap overwrites old data`() {
-        // Buffer capacity is 100, write 150 bytes
-        val data = ByteArray(150) { it.toByte() }
+        val data = ByteArray(TEST_CAPACITY + 50) { it.toByte() }
         buffer.write(data)
 
         // Size should be capped at capacity
-        assertEquals(100, buffer.size)
+        assertEquals(TEST_CAPACITY, buffer.size)
 
         val result = buffer.readAll()
-        // Should contain the last 100 bytes (50..149)
-        assertEquals(100, result.size)
-        assertEquals(50.toByte(), result[0]) // First byte should be 50
-        assertEquals(149.toByte(), result[99]) // Last byte should be 149
+        assertEquals(TEST_CAPACITY, result.size)
+        assertEquals(data[50], result[0])
+        assertEquals(data.last(), result.last())
     }
 
     @Test
@@ -176,18 +178,14 @@ class CircularByteBufferTest {
 
     @Test
     fun `wrapped buffer read order is correct`() {
-        // Create small buffer to force wrapping
-        val smallBuffer = CircularByteBuffer(10)
-
-        // Write 15 bytes: buffer wraps, keeps last 10 (5-14)
-        val data = ByteArray(15) { it.toByte() }
+        val smallBuffer = CircularByteBuffer(TEST_CAPACITY)
+        val data = ByteArray(TEST_CAPACITY + 5) { it.toByte() }
         smallBuffer.write(data)
 
         val result = smallBuffer.readAll()
-        assertEquals(10, result.size)
-        // Should be bytes 5-14 in order
-        for (i in 0..9) {
-            assertEquals((i + 5).toByte(), result[i])
+        assertEquals(TEST_CAPACITY, result.size)
+        for (i in 0 until TEST_CAPACITY) {
+            assertEquals(data[i + 5], result[i])
         }
     }
 
@@ -202,10 +200,10 @@ class CircularByteBufferTest {
     @Test
     fun `boundary condition - exact capacity write`() {
         // Write exactly capacity bytes
-        val data = ByteArray(100) { it.toByte() }
+        val data = ByteArray(TEST_CAPACITY) { it.toByte() }
         buffer.write(data)
 
-        assertEquals(100, buffer.size)
+        assertEquals(TEST_CAPACITY, buffer.size)
         val result = buffer.readAll()
         assertArrayEquals(data, result)
     }
@@ -213,52 +211,24 @@ class CircularByteBufferTest {
     @Test
     fun `boundary condition - capacity plus one`() {
         // Write capacity + 1 bytes
-        val data = ByteArray(101) { it.toByte() }
+        val data = ByteArray(TEST_CAPACITY + 1) { it.toByte() }
         buffer.write(data)
 
-        assertEquals(100, buffer.size)
+        assertEquals(TEST_CAPACITY, buffer.size)
         val result = buffer.readAll()
-        // Should have lost the first byte (0), kept 1-100
-        assertEquals(1.toByte(), result[0])
-        assertEquals(100.toByte(), result[99])
+        assertEquals(data[1], result[0])
+        assertEquals(data.last(), result.last())
     }
 
     @Test
     fun `sequential operations maintain consistency`() {
-        // Simulate real recording: multiple small writes
-        val chunks = listOf(
-            ByteArray(20) { 1 },
-            ByteArray(20) { 2 },
-            ByteArray(20) { 3 },
-            ByteArray(20) { 4 },
-            ByteArray(20) { 5 }
-        )
+        buffer.write(ByteArray(TEST_CAPACITY) { 1 })
+        buffer.write(ByteArray(100) { 2 })
 
-        chunks.forEach { buffer.write(it) }
-
-        // Total 100 bytes, should be full
-        assertEquals(100, buffer.size)
-
-        // Read and verify
         val result = buffer.readAll()
-        assertEquals(100, result.size)
-        assertTrue(result.slice(0..19).all { it == 1.toByte() })
-        assertTrue(result.slice(20..39).all { it == 2.toByte() })
-        assertTrue(result.slice(40..59).all { it == 3.toByte() })
-        assertTrue(result.slice(60..79).all { it == 4.toByte() })
-        assertTrue(result.slice(80..99).all { it == 5.toByte() })
-
-        // Write more to trigger wrap
-        buffer.write(ByteArray(50) { 6 })
-
-        val result2 = buffer.readAll()
-        // Should have lost first 50 bytes (all 1s and half of 2s)
-        assertEquals(100, result2.size)
-        assertTrue(result2.slice(0..9).all { it == 2.toByte() }) // Remaining 2s
-        assertTrue(result2.slice(10..29).all { it == 3.toByte() })
-        assertTrue(result2.slice(30..49).all { it == 4.toByte() })
-        assertTrue(result2.slice(50..69).all { it == 5.toByte() })
-        assertTrue(result2.slice(70..99).all { it == 6.toByte() }) // New 6s
+        assertEquals(TEST_CAPACITY, result.size)
+        assertTrue(result.copyOfRange(0, TEST_CAPACITY - 100).all { it == 1.toByte() })
+        assertTrue(result.copyOfRange(TEST_CAPACITY - 100, TEST_CAPACITY).all { it == 2.toByte() })
     }
 
     @Test

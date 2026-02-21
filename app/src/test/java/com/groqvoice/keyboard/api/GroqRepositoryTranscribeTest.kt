@@ -82,7 +82,7 @@ class GroqRepositoryTranscribeTest {
         assertTrue(result is TranscriptionResult.Queued)
         assertEquals(1, scheduler.enqueuedCount)
         assertTrue(file.exists())
-        file.delete()
+        assertTrue(file.delete())
     }
 
     private fun buildRepository(
