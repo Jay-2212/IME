@@ -1,11 +1,15 @@
 package com.groqvoice.keyboard.ui.settings
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import com.groqvoice.keyboard.R
 import com.groqvoice.keyboard.databinding.ActivitySettingsBinding
+import com.groqvoice.keyboard.utils.AuditLogger
 import com.groqvoice.keyboard.utils.SecurePrefs
 
 /**
@@ -106,14 +110,28 @@ class SettingsActivity : AppCompatActivity() {
             // Clear transcription log action
             findPreference<Preference>("clear_transcription_log")
                 ?.setOnPreferenceClickListener {
-                    // TODO: implement transcription log clear in Phase 4
+                    AuditLogger(requireContext()).clearLog()
+                    Toast.makeText(
+                        requireContext(),
+                        getString(R.string.pref_clear_log_done),
+                        Toast.LENGTH_SHORT
+                    ).show()
                     true
                 }
 
             // Privacy policy link
             findPreference<Preference>("privacy_policy")
                 ?.setOnPreferenceClickListener {
-                    // TODO: open privacy policy URL
+                    val url = getString(R.string.privacy_policy_url)
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    val opened = runCatching { startActivity(intent) }.isSuccess
+                    if (!opened) {
+                        Toast.makeText(
+                            requireContext(),
+                            getString(R.string.pref_open_link_failed),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                     true
                 }
         }

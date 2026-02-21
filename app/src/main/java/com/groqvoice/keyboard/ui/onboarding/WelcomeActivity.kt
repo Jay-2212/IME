@@ -33,7 +33,8 @@ class WelcomeActivity : AppCompatActivity() {
 
         // Skip onboarding if already completed
         if (securePrefs.isOnboardingComplete()) {
-            // User already set up — open settings or just finish
+            // User already set up — route directly to settings.
+            startActivity(Intent(this, SettingsActivity::class.java))
             finish()
             return
         }

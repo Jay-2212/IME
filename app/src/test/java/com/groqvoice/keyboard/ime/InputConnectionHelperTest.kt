@@ -88,6 +88,14 @@ class InputConnectionHelperTest {
     }
 
     @Test
+    fun `isPasswordField returns true for TYPE_NUMBER_VARIATION_PASSWORD`() {
+        val editorInfo = EditorInfo().apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+        }
+        assertTrue(InputConnectionHelper.isPasswordField(editorInfo))
+    }
+
+    @Test
     fun `isPasswordField returns false for regular text field`() {
         val editorInfo = EditorInfo().apply {
             inputType = InputType.TYPE_CLASS_TEXT

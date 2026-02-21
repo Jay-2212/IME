@@ -25,6 +25,7 @@ import com.groqvoice.keyboard.audio.AudioRecordingManager
 import com.groqvoice.keyboard.model.RecordingMode
 import com.groqvoice.keyboard.model.RecordingState
 import com.groqvoice.keyboard.model.TranscriptionResult
+import com.groqvoice.keyboard.utils.AuditLogger
 import com.groqvoice.keyboard.utils.FileCacheManager
 import com.groqvoice.keyboard.utils.SecurePrefs
 import kotlinx.coroutines.CoroutineScope
@@ -50,6 +51,7 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
     private lateinit var fileCacheManager: FileCacheManager
     private lateinit var audioManager: AudioRecordingManager
     private lateinit var groqRepository: GroqRepository
+    private lateinit var auditLogger: AuditLogger
 
     private var keyboardView: KeyboardView? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -86,7 +88,7 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
         super.onCreate()
         securePrefs = SecurePrefs(this)
         fileCacheManager = FileCacheManager(this)
-        val auditLogger = com.groqvoice.keyboard.utils.AuditLogger(this)
+        auditLogger = AuditLogger(this)
         audioManager = AudioRecordingManager(this, fileCacheManager)
         groqRepository = GroqRepository(
             apiKeyProvider = { securePrefs.getApiKey() },
@@ -285,7 +287,7 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
                                 keyboardView?.hideBanner()
                                 keyboardView?.playSuccessAnimation()
                             }
-                            com.groqvoice.keyboard.utils.AuditLogger(this@VoiceInputMethodService).logTranscription()
+                            auditLogger.logTranscription()
                             keyboardView?.applyState(RecordingState.Idle)
                         }
 
@@ -339,7 +341,10 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
     private fun showTransientError(message: String) {
         keyboardView?.applyState(RecordingState.Error(message))
         mainHandler.postDelayed(
-            { keyboardView?.applyState(RecordingState.Idle) },
+            {
+                keyboardView?.hideBanner()
+                keyboardView?.applyState(RecordingState.Idle)
+            },
             3_000L
         )
     }

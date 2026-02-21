@@ -74,7 +74,10 @@
     <string name="pref_category_privacy">Privacy</string>
     <string name="pref_clear_log_title">Clear transcription log</string>
     <string name="pref_clear_log_summary">Deletes local timestamps (no audio content stored)</string>
+    <string name="pref_clear_log_done">Transcription log cleared</string>
     <string name="pref_privacy_policy_title">Privacy Policy</string>
+    <string name="privacy_policy_url">https://groq.com/privacy-policy/</string>
+    <string name="pref_open_link_failed">Unable to open link</string>
 
     <!-- Model list labels -->
     <string-array name="groq_models">

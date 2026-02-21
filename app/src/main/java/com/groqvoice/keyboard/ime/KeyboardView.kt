@@ -1,5 +1,8 @@
 package com.groqvoice.keyboard.ime
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.content.Context
 import android.util.AttributeSet
 import android.view.LayoutInflater
@@ -68,6 +71,7 @@ class KeyboardView @JvmOverloads constructor(
     private val transcriptionPreviewText: TextView
     private val transcriptionPreviewContainer: View
     private val bannerMessage: TextView
+    private var pulseAnimatorSet: AnimatorSet? = null
 
     // ── Listeners exposed to VoiceInputMethodService ───────────────────────────
     var onMicTouchListener: ((event: MotionEvent) -> Boolean)? = null
@@ -113,10 +117,8 @@ class KeyboardView @JvmOverloads constructor(
      * @param state The current recording state from AudioRecordingManager.
      */
     fun applyState(state: RecordingState) {
-        // Cancel all ongoing animations to start fresh
-        btnMic.animate().cancel()
-        btnMic.translationX = 0f
-        
+        cancelMicAnimations(resetScale = true)
+
         when (state) {
             is RecordingState.Idle -> {
                 btnMic.backgroundTintList =
@@ -124,20 +126,7 @@ class KeyboardView @JvmOverloads constructor(
                 stateLabel.text = context.getString(R.string.state_idle)
                 stateLabel.setTextColor(context.getColor(R.color.disabled))
                 transcriptionPreviewContainer.visibility = View.GONE
-                // Pulse animation (subtle)
-                btnMic.animate()
-                    .scaleX(1.05f).scaleY(1.05f)
-                    .setDuration(1000)
-                    .withEndAction {
-                        btnMic.animate()
-                            .scaleX(0.95f).scaleY(0.95f)
-                            .setDuration(1000)
-                            .withEndAction { 
-                                // Reset to 1.0 occasionally handled by new states, this loop might conflict but is fine for idle
-                                applyState(state) 
-                            }
-                            .start()
-                    }.start()
+                startPulseAnimation(minScale = 0.95f, maxScale = 1.05f, durationMs = 1_000L)
             }
             is RecordingState.Recording -> {
                 val labelRes = if (state.mode == RecordingMode.HANDS_FREE)
@@ -148,20 +137,9 @@ class KeyboardView @JvmOverloads constructor(
                 stateLabel.setTextColor(context.getColor(R.color.accent_primary))
 
                 if (state.mode == RecordingMode.PUSH_TO_TALK) {
-                    // Scale animation for PTT
                     btnMic.animate().scaleX(1.1f).scaleY(1.1f).setDuration(200).start()
                 } else {
-                    // Hands Free: Rotating pulse
-                    btnMic.animate()
-                        .scaleX(1.15f).scaleY(1.15f)
-                        .setDuration(600)
-                        .withEndAction {
-                            btnMic.animate()
-                                .scaleX(1.05f).scaleY(1.05f)
-                                .setDuration(600)
-                                .withEndAction { if (state == RecordingState.Recording(state.mode, state.startTime, state.audioBuffer)) applyState(state) }
-                                .start()
-                        }.start()
+                    startPulseAnimation(minScale = 1.05f, maxScale = 1.15f, durationMs = 600L)
                 }
             }
             is RecordingState.Processing -> {
@@ -169,8 +147,6 @@ class KeyboardView @JvmOverloads constructor(
                     context.getColorStateList(R.color.disabled, null)
                 stateLabel.text = context.getString(R.string.state_processing)
                 stateLabel.setTextColor(context.getColor(R.color.disabled))
-                // Reset scale
-                btnMic.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
             }
             is RecordingState.Error -> {
                 btnMic.backgroundTintList =
@@ -178,25 +154,14 @@ class KeyboardView @JvmOverloads constructor(
                 stateLabel.text = context.getString(R.string.state_error)
                 stateLabel.setTextColor(context.getColor(R.color.error))
                 showBanner(state.message)
-                
-                // Shake animation
-                btnMic.animate().scaleX(1.0f).scaleY(1.0f).setDuration(50).start()
-                val shakeOffset = 15f
-                btnMic.animate().translationXBy(shakeOffset).setDuration(50).withEndAction {
-                    btnMic.animate().translationXBy(-shakeOffset * 2).setDuration(50).withEndAction {
-                        btnMic.animate().translationXBy(shakeOffset * 2).setDuration(50).withEndAction {
-                            btnMic.animate().translationX(0f).setDuration(50).start()
-                        }.start()
-                    }.start()
-                }.start()
+                playShakeAnimation()
             }
         }
     }
 
     /** Plays a success "pop" animation when transcription is committed. */
     fun playSuccessAnimation() {
-        btnMic.animate().cancel()
-        btnMic.translationX = 0f
+        cancelMicAnimations(resetScale = false)
         btnMic.animate()
             .scaleX(1.2f).scaleY(1.2f)
             .setDuration(150)
@@ -264,5 +229,56 @@ class KeyboardView @JvmOverloads constructor(
 
         btnSpacebar.setOnClickListener { onSpacebarClick?.invoke() }
         btnSettings.setOnClickListener { onSettingsClick?.invoke() }
+    }
+
+    private fun cancelMicAnimations(resetScale: Boolean) {
+        pulseAnimatorSet?.cancel()
+        pulseAnimatorSet = null
+        btnMic.animate().cancel()
+        btnMic.translationX = 0f
+        if (resetScale) {
+            btnMic.scaleX = 1f
+            btnMic.scaleY = 1f
+        }
+    }
+
+    private fun startPulseAnimation(minScale: Float, maxScale: Float, durationMs: Long) {
+        val scaleX = ObjectAnimator.ofFloat(btnMic, View.SCALE_X, minScale, maxScale).apply {
+            duration = durationMs
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+        }
+        val scaleY = ObjectAnimator.ofFloat(btnMic, View.SCALE_Y, minScale, maxScale).apply {
+            duration = durationMs
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+        }
+        pulseAnimatorSet = AnimatorSet().apply {
+            playTogether(scaleX, scaleY)
+            start()
+        }
+    }
+
+    private fun playShakeAnimation() {
+        val shakeOffset = 15f
+        btnMic.animate()
+            .translationXBy(shakeOffset)
+            .setDuration(50)
+            .withEndAction {
+                btnMic.animate()
+                    .translationXBy(-shakeOffset * 2)
+                    .setDuration(50)
+                    .withEndAction {
+                        btnMic.animate()
+                            .translationXBy(shakeOffset * 2)
+                            .setDuration(50)
+                            .withEndAction {
+                                btnMic.animate().translationX(0f).setDuration(50).start()
+                            }
+                            .start()
+                    }
+                    .start()
+            }
+            .start()
     }
 }

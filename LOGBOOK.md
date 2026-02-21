@@ -535,3 +535,67 @@ Memory safety is enforced through consistent zero-filling of audio buffers. This
 
 **Architect's Thoughts:**
 Phase 4 successfully bridges the gap between raw functionality and a premium user experience. I decided to discard the API-key memory wipe feature to prevent UX degradation—making users log back into their keyboard repeatedly disrupts the primary use case of a fast IME. The certificate pinning enforces the required zero-trust layer for cloud transcriptions.
+
+---
+
+## Entry 5
+
+**Timestamp:** 2026-02-21T01:49:37Z
+
+**Current Phase:** Integration Hardening & Final Audit (Phase 5 of 5 — TSD Section 8, 9.1)
+
+**Agent:** Codex
+
+### Audit Findings (Critical)
+
+- `KeyboardView.kt` contained a compile-breaking state reference (`RecordingState.Recording(..., state.audioBuffer)`) that does not exist in the current `RecordingState` model.
+- `KeyboardView` mic-state animations used recursive `applyState(...)` calls, creating unstable animation loops and difficult-to-reason state churn.
+- `SettingsActivity` still had unresolved TODOs for:
+  - clearing transcription audit log
+  - opening privacy policy link
+- API key validation UX in onboarding collapsed all non-success cases into “Unauthorized,” failing the TSD requirement to distinguish network errors.
+- Build tooling was not runnable in-repo because Gradle wrapper scripts/jar were missing.
+
+### Fixes Applied
+
+1. `KeyboardView.kt`
+   - Removed invalid `RecordingState` construction and replaced with deterministic animation helpers.
+   - Added explicit animation lifecycle control (`cancelMicAnimations`, pulse helpers, shake helper).
+   - Eliminated recursive state re-entry patterns in animation code.
+
+2. `SettingsActivity.kt` + `strings.xml`
+   - Implemented `clear_transcription_log` action using `AuditLogger.clearLog()`.
+   - Implemented `privacy_policy` action via browser intent with user-facing fallback toast.
+   - Added missing strings:
+     - `pref_clear_log_done`
+     - `privacy_policy_url`
+     - `pref_open_link_failed`
+
+3. `GroqRepository.kt` + `ApiKeySetupFragment.kt`
+   - Added typed API key validation outcomes:
+     - `Valid`
+     - `Unauthorized`
+     - `NetworkError`
+     - `HttpError(code)`
+     - `UnknownError`
+   - Updated onboarding messaging to map network failures to `api_key_error_network` (instead of unauthorized).
+
+4. `WelcomeActivity.kt`
+   - Updated “already onboarded” behavior to route directly to `SettingsActivity` instead of simply finishing.
+
+5. Test and build readiness
+   - Added `GroqRepositoryApiKeyValidationTest.kt` (Robolectric-backed unit tests for validation result mapping).
+   - Added `GroqRepositoryTranscribeTest.kt` (success/error/offline-queue behavior and temp-file lifecycle coverage).
+   - Expanded `OnboardingFlowTest.kt` beyond skeleton checks with step progression assertions.
+   - Added password coverage for numeric password fields in `InputConnectionHelperTest.kt`.
+   - Added Gradle wrapper artifacts:
+     - `gradlew`
+     - `gradlew.bat`
+     - `gradle/wrapper/gradle-wrapper.jar`
+   - Added `robolectric` test dependency.
+
+### Verification Notes
+
+- Build invocation reached Gradle successfully after wrapper restoration.
+- Environment remains missing Android SDK (`sdk.dir`/`ANDROID_HOME`), so full test execution is blocked in this session.
+- This is now an environment constraint, not a wrapper/plugin declaration issue.

@@ -46,6 +46,14 @@ class GroqRepository(
     private val rateLimiter: RequestRateLimiter = GLOBAL_RATE_LIMITER,
     apiOverride: GroqApiService? = null
 ) {
+    sealed class ApiKeyValidationResult {
+        data object Valid : ApiKeyValidationResult()
+        data object Unauthorized : ApiKeyValidationResult()
+        data object NetworkError : ApiKeyValidationResult()
+        data class HttpError(val code: Int) : ApiKeyValidationResult()
+        data object UnknownError : ApiKeyValidationResult()
+    }
+
 
     companion object {
         const val BASE_URL = "https://api.groq.com/openai/v1/"
@@ -221,10 +229,24 @@ class GroqRepository(
      * Live API key validation used during onboarding and settings.
      */
     suspend fun validateApiKey(): Boolean {
+        return validateApiKeyDetailed() is ApiKeyValidationResult.Valid
+    }
+
+    /**
+     * Live API key validation with failure classification for onboarding UX messaging.
+     */
+    suspend fun validateApiKeyDetailed(): ApiKeyValidationResult {
         return try {
-            api.listModels().isSuccessful
+            val response = api.listModels()
+            when {
+                response.isSuccessful -> ApiKeyValidationResult.Valid
+                response.code() == 401 -> ApiKeyValidationResult.Unauthorized
+                else -> ApiKeyValidationResult.HttpError(response.code())
+            }
+        } catch (_: IOException) {
+            ApiKeyValidationResult.NetworkError
         } catch (_: Exception) {
-            false
+            ApiKeyValidationResult.UnknownError
         }
     }
 

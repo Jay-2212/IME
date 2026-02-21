@@ -11,6 +11,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.groqvoice.keyboard.R
 import com.groqvoice.keyboard.api.GroqRepository
+import com.groqvoice.keyboard.api.GroqRepository.ApiKeyValidationResult
 import com.groqvoice.keyboard.databinding.FragmentApiKeySetupBinding
 import com.groqvoice.keyboard.utils.FileCacheManager
 import com.groqvoice.keyboard.utils.SecurePrefs
@@ -100,21 +101,40 @@ class ApiKeySetupFragment : Fragment() {
         binding.btnValidateContinue.isEnabled = false
 
         lifecycleScope.launch {
-            val isValid = withContext(Dispatchers.IO) { groqRepository.validateApiKey() }
+            when (withContext(Dispatchers.IO) { groqRepository.validateApiKeyDetailed() }) {
+                ApiKeyValidationResult.Valid -> {
+                    securePrefs.setApiKey(key)
+                    binding.tvValidationStatus.apply {
+                        text = getString(R.string.api_key_valid)
+                        setTextColor(requireContext().getColor(R.color.success))
+                    }
+                    (activity as? WelcomeActivity)?.goToNextStep()
+                }
 
-            if (isValid) {
-                securePrefs.setApiKey(key)
-                binding.tvValidationStatus.apply {
-                    text = getString(R.string.api_key_valid)
-                    setTextColor(requireContext().getColor(R.color.success))
+                ApiKeyValidationResult.Unauthorized -> {
+                    binding.tvValidationStatus.apply {
+                        text = getString(R.string.api_key_error_unauthorized)
+                        setTextColor(requireContext().getColor(R.color.error))
+                    }
+                    binding.btnValidateContinue.isEnabled = true
                 }
-                (activity as? WelcomeActivity)?.goToNextStep()
-            } else {
-                binding.tvValidationStatus.apply {
-                    text = getString(R.string.api_key_error_unauthorized)
-                    setTextColor(requireContext().getColor(R.color.error))
+
+                ApiKeyValidationResult.NetworkError -> {
+                    binding.tvValidationStatus.apply {
+                        text = getString(R.string.api_key_error_network)
+                        setTextColor(requireContext().getColor(R.color.error))
+                    }
+                    binding.btnValidateContinue.isEnabled = true
                 }
-                binding.btnValidateContinue.isEnabled = true
+
+                is ApiKeyValidationResult.HttpError,
+                ApiKeyValidationResult.UnknownError -> {
+                    binding.tvValidationStatus.apply {
+                        text = getString(R.string.error_generic)
+                        setTextColor(requireContext().getColor(R.color.error))
+                    }
+                    binding.btnValidateContinue.isEnabled = true
+                }
             }
         }
     }

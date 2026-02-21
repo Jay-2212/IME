@@ -84,7 +84,8 @@ object InputConnectionHelper {
                 android.text.InputType.TYPE_MASK_VARIATION
         return variation == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD ||
                 variation == android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
-                variation == android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD
+                variation == android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
+                variation == android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
     }
 
     /**
