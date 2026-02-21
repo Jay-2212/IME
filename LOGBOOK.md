@@ -599,3 +599,69 @@ Phase 4 successfully bridges the gap between raw functionality and a premium use
 - Build invocation reached Gradle successfully after wrapper restoration.
 - Environment remains missing Android SDK (`sdk.dir`/`ANDROID_HOME`), so full test execution is blocked in this session.
 - This is now an environment constraint, not a wrapper/plugin declaration issue.
+
+---
+
+## Entry 6
+
+**Timestamp:** 2026-02-21T03:08:37Z
+
+**Current Phase:** Post-Phase 5 Stabilization / Real Device Validation
+
+**Agent:** Codex
+
+**Status:** IN PROGRESS (handoff-ready)
+
+### Additional Work Completed After Entry 5
+
+- Re-ran verification after SDK/device setup:
+  - `./gradlew testDebugUnitTest` ✅
+  - `./gradlew connectedDebugAndroidTest` ✅ (device: `SM-S928B`)
+  - `./gradlew installDebug` ✅
+- Fixed test-suite issues discovered during real execution:
+  - `CircularByteBufferTest` assumptions updated to respect implementation min-capacity clamping (`MIN_CAPACITY_BYTES`).
+  - `GroqRepositoryTranscribeTest` initialization error fixed (test method returned non-Unit due trailing expression).
+- Updated and pushed stabilization pass to GitHub:
+  - Commit `6546eb5` — test stabilization + launcher asset updates.
+
+### Critical Runtime IME Bug Found and Fixed
+
+**User symptom:** selecting GroqVoice as default keyboard caused repeated IME crashes and keyboard never appeared in text fields.
+
+**Root cause (from `dumpsys dropbox --print`, `data_app_crash`):**
+- `InflateException` in `layout/keyboard_view`
+- `FloatingActionButton` inflation failure
+- `IllegalArgumentException: The style on this component requires your app theme to be Theme.MaterialComponents (or a descendant)`
+- Crash location: `VoiceInputMethodService.onCreateInputView(...)`
+
+**Fixes applied:**
+- `app/src/main/java/com/groqvoice/keyboard/ime/VoiceInputMethodService.kt`
+  - `KeyboardView` now created with `ContextThemeWrapper(this, R.style.Theme_GroqVoiceKeyboard)`.
+- `app/src/main/AndroidManifest.xml`
+  - IME service now explicitly uses `android:theme="@style/Theme.GroqVoiceKeyboard"`.
+
+**Verification after fix:**
+- Reinstalled debug build on device.
+- Forced IME selection via ADB.
+- Triggered text-field focus repeatedly.
+- Crash counter (`data_app_crash`) did not increase during verification window.
+
+**GitHub push:**
+- Commit `9885764` — IME Material theme crash fix.
+
+### User-Reported Remaining Issues (Open / Handoff Required)
+
+1. Keyboard now opens, but mic interaction is not reliable ("audio button not clicking" behavior).
+2. Mic icon alignment is visibly wrong (icon not centered/matched within circular button).
+3. Settings screen has color/theme inconsistency.
+4. Overall UI quality/polish is below expected production quality standard ("not 2026 standards").
+
+### Recommended Next Agent Focus
+
+1. Reproduce mic interaction issue on Samsung One UI with pointer/gesture conflict analysis (`onTouch`, hit slop, z-order).
+2. Fix mic icon layout/tint/size/alignment in `keyboard_view.xml` + `KeyboardView`.
+3. Perform full UI theme audit (especially settings colors/contrast).
+4. Execute final visual polish pass for production-grade UX consistency.
+
+**Signed:** Codex  
+**Date (UTC):** 2026-02-21T03:08:37Z
