@@ -5,19 +5,22 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.provider.Settings
 import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
+import com.groqvoice.keyboard.BuildConfig
 import com.groqvoice.keyboard.R
+import com.groqvoice.keyboard.api.AndroidNetworkStatusProvider
 import com.groqvoice.keyboard.api.GroqRepository
+import com.groqvoice.keyboard.api.WorkManagerTranscriptionRetryScheduler
 import com.groqvoice.keyboard.audio.AudioRecordingManager
 import com.groqvoice.keyboard.model.RecordingMode
 import com.groqvoice.keyboard.model.RecordingState
@@ -33,91 +36,51 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 /**
- * The core Android Input Method Service for GroqVoice.
+ * Android IME service that orchestrates touch input, recording, and transcription delivery.
  *
- * ## Lifecycle
- *
- * - **[onCreate]** → Initialize dependencies (SecurePrefs, FileCacheManager, AudioRecordingManager, GroqRepository)
- * - **[onCreateInputView]** → Inflate [KeyboardView], wire touch listeners
- * - **[onStartInput]** → Inspect [EditorInfo], reset state, check password/incognito mode
- * - **[onFinishInputView]** → Stop recording immediately (privacy requirement)
- * - **[onTrimMemory]** → Clear audio buffers, stop non-essential animations
- * - **[onDestroy]** → Release all resources
- *
- * ## Responsibilities
- *
- * - **Touch Handling**: Interprets mic button presses (tap vs hold) per TSD 4.2.
- * - **Text Manipulation**: Delegates to [InputConnectionHelper] for proper IME behavior.
- * - **State Observation**: Observes [AudioRecordingManager.state] via coroutines.
- * - **System Events**: Handles memory pressure, audio routing changes, and keyboard visibility.
- *
- * ## Memory Management
- *
- * Implements [onTrimMemory] per TSD 5.3 to:
- * - Clear audio buffers when system requests memory
- * - Stop non-essential animations during low memory conditions
- * - Release transient resources while keeping core functionality intact
- *
- * ## Interruption Handling
- *
- * The service registers for Bluetooth audio routing changes to:
- * - Stop recording when audio routes to/from a Bluetooth device
- * - Restart recording if needed after routing stabilizes (future enhancement)
- *
- * @see AudioRecordingManager Manages audio hardware and recording state.
- * @see InputConnectionHelper Handles text insertion/deletion with proper UTF-16 support.
- *
- * TSD Section 1.1, 1.2, 4.2, 5.2, 5.3, 6.1.
+ * Phase 3 updates:
+ * - Handles queued uploads (`TranscriptionResult.Queued`) from WorkManager fallback.
+ * - Enforces incognito/password no-cloud behavior before recording starts.
+ * - Fixes backspace repeat lifecycle so unrelated handler callbacks are not cancelled.
+ * - Uses secure preference-backed toggles for haptics and double-tap period.
  */
 class VoiceInputMethodService : android.inputmethodservice.InputMethodService() {
 
-    // ── Dependencies ───────────────────────────────────────────────────────────
     private lateinit var securePrefs: SecurePrefs
     private lateinit var fileCacheManager: FileCacheManager
     private lateinit var audioManager: AudioRecordingManager
     private lateinit var groqRepository: GroqRepository
 
-    // ── UI ─────────────────────────────────────────────────────────────────────
     private var keyboardView: KeyboardView? = null
-
-    // ── Coroutines ─────────────────────────────────────────────────────────────
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    // ── Touch timing (TSD Section 4.2) ────────────────────────────────────────
     private val mainHandler = Handler(Looper.getMainLooper())
     private var touchDownTimeMs = 0L
+    private var lastMicInteractionMs = 0L
+    private var ignoreCurrentMicTouch = false
     private var lastSpaceMs = 0L
     private val handsFreeRunnable = Runnable {
-        // 800 ms elapsed without release → started as push-to-talk, now committed
+        // Reserved hook for future long-hold visual feedback while user keeps pressing.
     }
 
-    // ── Backspace long-press (TSD 5.4) ────────────────────────────────────────
     private val backspaceRepeatRunnable = object : Runnable {
         override fun run() {
             performBackspace()
             mainHandler.postDelayed(this, BACKSPACE_REPEAT_INTERVAL_MS)
         }
     }
+    private var backspaceStartRunnable: Runnable? = null
     private var isBackspaceRepeating = false
 
-    // ── Audio routing receiver ────────────────────────────────────────────────
     private var audioRoutingReceiver: BroadcastReceiver? = null
 
-    // ── Current editor state ──────────────────────────────────────────────────
     private var isPasswordField = false
     private var isIncognitoMode = false
 
     companion object {
         private const val BACKSPACE_HOLD_TRIGGER_MS = 500L
         private const val BACKSPACE_REPEAT_INTERVAL_MS = 100L
-
-        /** Threshold for double-tap detection in milliseconds. */
-        private const val DOUBLE_TAP_THRESHOLD_MS = 300L
     }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Lifecycle
-    // ──────────────────────────────────────────────────────────────────────────
 
     override fun onCreate() {
         super.onCreate()
@@ -127,7 +90,9 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
         groqRepository = GroqRepository(
             apiKeyProvider = { securePrefs.getApiKey() },
             fileCacheManager = fileCacheManager,
-            isDebug = false // TODO: Wire to BuildConfig.DEBUG
+            retryScheduler = WorkManagerTranscriptionRetryScheduler(this),
+            networkStatusProvider = AndroidNetworkStatusProvider(this),
+            isDebug = BuildConfig.DEBUG
         )
         observeRecordingState()
         registerAudioRoutingReceiver()
@@ -148,60 +113,29 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
         isPasswordField = InputConnectionHelper.isPasswordField(attribute)
         isIncognitoMode = InputConnectionHelper.isIncognitoMode(attribute)
 
-        if (isPasswordField) {
-            keyboardView?.showBanner(getString(R.string.banner_voice_disabled_security))
-        } else if (isIncognitoMode) {
-            keyboardView?.showBanner(getString(R.string.banner_incognito_warning))
-        } else {
-            keyboardView?.hideBanner()
-        }
-
-        if (!securePrefs.hasApiKey()) {
-            keyboardView?.showBanner(getString(R.string.banner_no_api_key))
+        when {
+            isPasswordField -> keyboardView?.showBanner(getString(R.string.banner_voice_disabled_security))
+            isIncognitoMode -> keyboardView?.showBanner(getString(R.string.banner_incognito_warning))
+            !securePrefs.hasApiKey() -> keyboardView?.showBanner(getString(R.string.banner_no_api_key))
+            else -> keyboardView?.hideBanner()
         }
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
-        // Privacy: always stop recording when keyboard is hidden (TSD 5.3)
-        audioManager.stopRecording()
+        audioManager.cancelRecordingForModeSwitch()
         stopBackspaceRepeat()
         mainHandler.removeCallbacks(handsFreeRunnable)
         super.onFinishInputView(finishingInput)
     }
 
-    /**
-     * Called when the system is running low on memory.
-     *
-     * Implements TSD Section 5.3 (Low Memory) and 6.1 (Memory Management):
-     * - **TRIM_MEMORY_RUNNING_MODERATE**: Clear pre-buffer to free ~19KB
-     * - **TRIM_MEMORY_RUNNING_LOW**: Clear buffers, stop animations
-     * - **TRIM_MEMORY_COMPLETE**: Stop recording immediately, release all resources
-     *
-     * @param level The memory trim level constant from [android.content.ComponentCallbacks2].
-     */
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-
-        when (level) {
-            android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL,
-            android.content.ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> {
-                // Critical: Stop everything, release all resources
-                audioManager.onTrimMemory(level)
-                stopBackspaceRepeat()
-                keyboardView?.let { view ->
-                    // Stop any ongoing animations
-                    view.btnMic.clearAnimation()
-                }
-            }
-            android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> {
-                // Low memory: Clear buffers, keep recording if active
-                audioManager.onTrimMemory(level)
-            }
-            android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE,
-            android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN -> {
-                // Moderate: Just clear pre-buffer
-                audioManager.onTrimMemory(level)
-            }
+        audioManager.onTrimMemory(level)
+        if (level == android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
+            level == android.content.ComponentCallbacks2.TRIM_MEMORY_COMPLETE
+        ) {
+            stopBackspaceRepeat()
+            keyboardView?.btnMic?.clearAnimation()
         }
     }
 
@@ -212,141 +146,166 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
         super.onDestroy()
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Mic button touch handling (TSD Section 4.2)
-    // ──────────────────────────────────────────────────────────────────────────
-
     private fun wireMicButton(view: KeyboardView) {
         view.onMicTouchListener = { event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    touchDownTimeMs = System.currentTimeMillis()
-                    mainHandler.postDelayed(
-                        handsFreeRunnable,
-                        AudioRecordingManager.HOLD_THRESHOLD_MS
-                    )
-                    performHaptic()
-                    if (!isPasswordField && securePrefs.hasApiKey()) {
-                        audioManager.startRecording(RecordingMode.PUSH_TO_TALK)
-                    }
-                    true
-                }
-                MotionEvent.ACTION_UP -> {
-                    val duration = System.currentTimeMillis() - touchDownTimeMs
-                    mainHandler.removeCallbacks(handsFreeRunnable)
-
-                    if (duration < AudioRecordingManager.HOLD_THRESHOLD_MS) {
-                        // Short tap → toggle hands-free
-                        val current = audioManager.state.value
-                        if (current is RecordingState.Recording &&
-                            current.mode == RecordingMode.HANDS_FREE
-                        ) {
-                            audioManager.stopRecording()
-                        } else {
-                            audioManager.stopRecording()
-                            audioManager.startRecording(RecordingMode.HANDS_FREE)
-                        }
+                    val now = System.currentTimeMillis()
+                    if (now - lastMicInteractionMs < AudioRecordingManager.DEBOUNCE_MS) {
+                        ignoreCurrentMicTouch = true
+                        true
                     } else {
-                        // Hold-and-release → push-to-talk stop
-                        audioManager.stopRecording()
+                        ignoreCurrentMicTouch = false
+                        lastMicInteractionMs = now
+
+                        touchDownTimeMs = System.currentTimeMillis()
+                        mainHandler.postDelayed(handsFreeRunnable, AudioRecordingManager.HOLD_THRESHOLD_MS)
+
+                        val blocked = when {
+                            isPasswordField -> {
+                                keyboardView?.showBanner(getString(R.string.banner_voice_disabled_security))
+                                true
+                            }
+                            isIncognitoMode -> {
+                                keyboardView?.showBanner(getString(R.string.banner_incognito_warning))
+                                true
+                            }
+                            !securePrefs.hasApiKey() -> {
+                                keyboardView?.showBanner(getString(R.string.banner_no_api_key))
+                                true
+                            }
+                            else -> false
+                        }
+
+                        if (!blocked) {
+                            performHaptic()
+                            audioManager.startRecording(RecordingMode.PUSH_TO_TALK)
+                        }
+                        true
                     }
+                }
+
+                MotionEvent.ACTION_UP -> {
+                    mainHandler.removeCallbacks(handsFreeRunnable)
+                    if (ignoreCurrentMicTouch) {
+                        ignoreCurrentMicTouch = false
+                        true
+                    } else {
+                        val blocked = isPasswordField || isIncognitoMode || !securePrefs.hasApiKey()
+                        if (!blocked) {
+                            val durationMs = System.currentTimeMillis() - touchDownTimeMs
+
+                            if (durationMs < AudioRecordingManager.HOLD_THRESHOLD_MS) {
+                                val current = audioManager.state.value
+                                val isHandsFreeRunning = current is RecordingState.Recording &&
+                                    current.mode == RecordingMode.HANDS_FREE
+
+                                if (isHandsFreeRunning) {
+                                    audioManager.stopRecording()
+                                } else {
+                                    audioManager.cancelRecordingForModeSwitch()
+                                    audioManager.startRecording(RecordingMode.HANDS_FREE)
+                                }
+                            } else {
+                                audioManager.stopRecording()
+                            }
+                        }
+                        true
+                    }
+                }
+
+                MotionEvent.ACTION_CANCEL -> {
+                    mainHandler.removeCallbacks(handsFreeRunnable)
+                    ignoreCurrentMicTouch = false
+                    audioManager.cancelRecordingForModeSwitch()
                     true
                 }
+
                 else -> false
             }
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Backspace button handling with long-press repeat (TSD 5.4)
-    // ──────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Wires the backspace button with proper long-press repeat behavior.
-     *
-     * Implements TSD Section 5.4:
-     * - Short press: Delete one character
-     * - Long press (500ms): Start repeating deletion every 100ms
-     * - Release: Stop repeating
-     */
     private fun wireBackspaceButton(view: KeyboardView) {
         view.onBackspaceClick = { performBackspace() }
         view.onBackspaceLongClick = {
             if (!isBackspaceRepeating) {
                 isBackspaceRepeating = true
-                // Initial delete after hold trigger delay
-                mainHandler.postDelayed({
+                backspaceStartRunnable = Runnable {
                     if (isBackspaceRepeating) {
                         performBackspace()
-                        // Start repeating
                         mainHandler.postDelayed(backspaceRepeatRunnable, BACKSPACE_REPEAT_INTERVAL_MS)
                     }
-                }, BACKSPACE_HOLD_TRIGGER_MS)
+                }.also { runnable ->
+                    mainHandler.postDelayed(runnable, BACKSPACE_HOLD_TRIGGER_MS)
+                }
             }
             true
         }
-        view.onBackspaceTouchUp = {
-            stopBackspaceRepeat()
-        }
+        view.onBackspaceTouchUp = { stopBackspaceRepeat() }
     }
 
-    /**
-     * Stops the backspace repeat action.
-     * Called on ACTION_UP or when keyboard is hidden.
-     */
     private fun stopBackspaceRepeat() {
         isBackspaceRepeating = false
+        backspaceStartRunnable?.let { mainHandler.removeCallbacks(it) }
+        backspaceStartRunnable = null
         mainHandler.removeCallbacks(backspaceRepeatRunnable)
-        // Also remove the initial delayed start
-        mainHandler.removeCallbacksAndMessages(null)
-        // Re-post the backspace setup if needed (but we need to be careful)
-        // Actually, let's just use a specific token approach
     }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // State observation
-    // ──────────────────────────────────────────────────────────────────────────
 
     private fun observeRecordingState() {
         audioManager.state
             .onEach { state ->
                 keyboardView?.applyState(state)
-
                 if (state is RecordingState.Processing) {
-                    val ic = currentInputConnection ?: return@onEach
-                    InputConnectionHelper.setComposingTranscription(ic, "…")
+                    currentInputConnection?.let { ic ->
+                        InputConnectionHelper.setComposingTranscription(ic, "…")
+                    }
                 }
             }
             .launchIn(serviceScope)
 
         audioManager.onRecordingComplete = { audioFile ->
             serviceScope.launch(Dispatchers.IO) {
-                val model = securePrefs.getModel()
-                val result = groqRepository.transcribe(audioFile, model)
+                val result = groqRepository.transcribe(
+                    audioFile = audioFile,
+                    model = securePrefs.getModel()
+                )
 
                 serviceScope.launch(Dispatchers.Main) {
                     val ic = currentInputConnection
                     when (result) {
                         is TranscriptionResult.Success -> {
                             ic?.let { InputConnectionHelper.commitTranscription(it, result.text) }
+                            if (result.isPartial) {
+                                keyboardView?.showBanner(
+                                    result.warning ?: getString(R.string.banner_partial_transcription)
+                                )
+                            } else {
+                                keyboardView?.hideBanner()
+                            }
                             keyboardView?.applyState(RecordingState.Idle)
                         }
+
+                        is TranscriptionResult.Queued -> {
+                            ic?.let { InputConnectionHelper.clearComposing(it) }
+                            keyboardView?.showBanner(getString(R.string.banner_no_network))
+                            keyboardView?.applyState(RecordingState.Idle)
+                        }
+
                         is TranscriptionResult.Failure -> {
                             ic?.let { InputConnectionHelper.clearComposing(it) }
                             if (result.httpCode == 401) {
-                                // Redirect to onboarding for re-entry of API key
+                                securePrefs.clearApiKey()
                                 openOnboarding()
-                            } else {
+                                keyboardView?.showBanner(getString(R.string.banner_no_api_key))
+                            } else if (result.isQuotaExceeded) {
+                                keyboardView?.showBanner(getString(R.string.banner_quota_exceeded))
                                 keyboardView?.applyState(RecordingState.Error(result.message))
+                            } else {
+                                showTransientError(result.message)
                             }
                         }
                     }
-                    // Reset to Idle after showing error briefly
-                    mainHandler.postDelayed({
-                        if (audioManager.state.value is RecordingState.Error) {
-                            // Re-expose Idle so the user can retry
-                        }
-                    }, 3_000)
                 }
             }
         }
@@ -361,45 +320,32 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
                     AudioRecordingManager.InterruptionReason.TRIM_MEMORY ->
                         getString(R.string.error_recording_interrupted_memory)
                 }
-                keyboardView?.applyState(RecordingState.Error(message))
-
-                // Clear composing text
                 currentInputConnection?.let { InputConnectionHelper.clearComposing(it) }
+                showTransientError(message)
+            }
+        }
 
-                // Reset to Idle after delay
-                mainHandler.postDelayed({
-                    keyboardView?.applyState(RecordingState.Idle)
-                }, 3_000)
+        audioManager.onError = { message ->
+            serviceScope.launch(Dispatchers.Main) {
+                currentInputConnection?.let { InputConnectionHelper.clearComposing(it) }
+                showTransientError(message)
             }
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Audio Routing Change Handling
-    // ──────────────────────────────────────────────────────────────────────────
+    private fun showTransientError(message: String) {
+        keyboardView?.applyState(RecordingState.Error(message))
+        mainHandler.postDelayed(
+            { keyboardView?.applyState(RecordingState.Idle) },
+            3_000L
+        )
+    }
 
-    /**
-     * Registers a receiver for audio routing changes (Bluetooth, headset, etc).
-     * Per TSD 5.2, we need to handle Bluetooth audio routing changes.
-     *
-     * Note: The actual recording stop is handled by AudioRecordingManager's
-     * internal receiver. This service-level receiver is for UI updates and
-     * additional handling if needed.
-     */
     private fun registerAudioRoutingReceiver() {
         audioRoutingReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                when (intent.action) {
-                    AudioManager.ACTION_SCO_AUDIO_STATE_UPDATED -> {
-                        val state = intent.getIntExtra(
-                            AudioManager.EXTRA_SCO_AUDIO_STATE,
-                            AudioManager.SCO_AUDIO_STATE_DISCONNECTED
-                        )
-                        if (state == AudioManager.SCO_AUDIO_STATE_DISCONNECTED) {
-                            // Bluetooth SCO disconnected - recording may have stopped
-                            // UI update is handled by state observation
-                        }
-                    }
+                if (intent.action == AudioManager.ACTION_SCO_AUDIO_STATE_UPDATED) {
+                    // UI updates are already driven by recording state callbacks.
                 }
             }
         }
@@ -418,15 +364,11 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
             try {
                 unregisterReceiver(receiver)
             } catch (_: IllegalArgumentException) {
-                // Receiver not registered or already unregistered
+                // Receiver may already be unregistered.
             }
             audioRoutingReceiver = null
         }
     }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Keyboard actions
-    // ──────────────────────────────────────────────────────────────────────────
 
     private fun performBackspace() {
         currentInputConnection?.let { InputConnectionHelper.deleteCharacter(it) }
@@ -434,17 +376,18 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
 
     private fun handleSpaceKey() {
         val ic = currentInputConnection ?: return
-        val doubleTap = securePrefs.run {
-            // Read double-tap preference (default: on)
-            true // TODO: read from SecurePrefs when full preference migration is done
+        val doubleTapEnabled = securePrefs.isDoubleTapPeriodEnabled()
+        val wasDoubleTap = InputConnectionHelper.handleSpaceKey(ic, lastSpaceMs, doubleTapEnabled)
+        if (!wasDoubleTap) {
+            lastSpaceMs = System.currentTimeMillis()
         }
-        val wasDoubleTap = InputConnectionHelper.handleSpaceKey(ic, lastSpaceMs, doubleTap)
-        if (!wasDoubleTap) lastSpaceMs = System.currentTimeMillis()
     }
 
     private fun performHaptic() {
+        if (!securePrefs.isHapticFeedbackEnabled()) return
+
         try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 getSystemService<VibratorManager>()
                     ?.defaultVibrator
                     ?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
@@ -454,19 +397,21 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
                     ?.vibrate(VibrationEffect.createOneShot(20, VibrationEffect.DEFAULT_AMPLITUDE))
             }
         } catch (_: Exception) {
-            // Haptic is non-critical; silently ignore errors
+            // Haptics are optional UX; ignore runtime failures.
         }
     }
 
     private fun openSettings() {
-        val intent = Intent(this, com.groqvoice.keyboard.ui.settings.SettingsActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(intent)
+        startActivity(
+            Intent(this, com.groqvoice.keyboard.ui.settings.SettingsActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
     }
 
     private fun openOnboarding() {
-        val intent = Intent(this, com.groqvoice.keyboard.ui.onboarding.WelcomeActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(intent)
+        startActivity(
+            Intent(this, com.groqvoice.keyboard.ui.onboarding.WelcomeActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        )
     }
 }

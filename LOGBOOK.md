@@ -371,3 +371,102 @@ Memory safety is enforced through consistent zero-filling of audio buffers. This
 - [ ] Unit test: `AudioRecordingManager` state transitions (requires Robolectric or mock `AudioRecord`)
 - [ ] Unit test: `GroqRepository` retry/backoff logic (mock OkHttp server)
 - [ ] Manual testing matrix (TSD 8.3): API 26–34, dark/light mode, split-screen, foldables, password fields
+
+---
+
+## Entry 3
+
+**Timestamp:** 2026-02-20T23:39:43Z
+
+**Current Phase:** API Integration (Phase 3 of 5 — TSD Section 4.4, 5.1, Appendix A)
+
+**Agent:** Codex
+
+### Audit Report
+
+- Fixed repository retry/circuit logic defects from prior phases:
+  - corrected retry loop behavior (success/permanent failures no longer re-loop unintentionally)
+  - corrected `retry-after` handling (seconds vs milliseconds bug removed)
+  - made temp file cleanup deterministic with queued-retry exception path
+  - changed API key validation to strict `isSuccessful`
+- Fixed IME/service defects from prior phases:
+  - backspace long-press no longer cancels unrelated `Handler` callbacks
+  - incognito/password/no-key paths now block cloud recording on both DOWN and UP touch events
+  - double-tap-space and haptic settings now read from encrypted prefs instead of hardcoded TODO path
+  - 401 path now clears stored API key before onboarding redirect
+- Fixed audio pipeline defects from prior phases:
+  - removed duplicate-finish race in `AudioRecordingManager` (single terminal callback per session)
+  - hardened `AudioRecord` stop/release paths against illegal state calls
+  - corrected signed PCM conversion in `VoiceActivityDetector.computeRms`
+
+### Status Update
+
+#### Phase 3 implementation complete
+
+- `GroqRepository` rewritten for Phase 3 resilience:
+  - client-side throttling added via `RequestRateLimiter` (20 req/min sliding window)
+  - multipart requests now send `response_format=verbose_json` and `temperature=0`
+  - parses `x_groq` metadata plus warning-driven partial transcription
+  - partial responses append trailing ellipsis when missing
+  - richer 401/413/429/5xx/network mapping with quota detection and retry metadata
+  - exponential backoff with jitter for retryable failures
+- FLAC support implemented:
+  - `AudioEncoder` now supports `OutputFormat.WAV` and `OutputFormat.FLAC`
+  - FLAC encoding uses platform `MediaCodec` (`audio/flac`) with WAV fallback
+  - `AudioRecordingManager` now emits FLAC-first temp files and falls back safely to WAV
+- WorkManager retry queue implemented for offline/timeout failures:
+  - added `TranscriptionRetryScheduler` + `WorkManagerTranscriptionRetryScheduler`
+  - added `TranscriptionRetryWorker` with network constraints and exponential backoff
+  - repository now returns `TranscriptionResult.Queued` when upload is deferred
+- IME integration updated:
+  - handles `Success`, `Failure`, and `Queued` result types explicitly
+  - shows no-network banner for queued uploads, quota banner for exhausted quota
+  - preserves composing text lifecycle and state reset behavior
+
+#### Additional platform updates
+
+- Added `android.permission.ACCESS_NETWORK_STATE` for runtime connectivity decisions.
+- Added secure pref APIs for double-tap period and haptic toggles.
+- Settings screen now bridges double-tap/haptic switches to `SecurePrefs`.
+
+#### Documentation generated
+
+- Added/updated KDoc and inline comments across all new/modified Phase 3 classes:
+  - `GroqRepository`
+  - `RequestRateLimiter`
+  - `NetworkStatusProvider`
+  - `TranscriptionRetryScheduler`
+  - `TranscriptionRetryWorker`
+  - `AudioEncoder`
+  - `AudioRecordingManager`
+  - `VoiceInputMethodService`
+  - `SecurePrefs`
+
+#### Tests
+
+- Added `RequestRateLimiterTest` for window/limit/retry-after behavior.
+- Extended `AudioEncoderTest` for `writePcmToFile(..., WAV)` path.
+- Test execution was **not possible** in this environment because:
+  - repository does not contain `gradlew`
+  - local `gradle` binary is unavailable
+
+### Remaining Tasks
+
+- Phase 4 security/polish items remain open (cert pinning, accessibility labels, animation polish, audit log, Lottie replacement).
+- Phase 5 integration tests remain open (Espresso + Robolectric + mock server coverage).
+- Add Gradle wrapper scripts/jar (or install Gradle) to unblock CI/local test execution.
+- Validate FLAC codec behavior on real API 26–34 devices (OEM codec variability).
+- Define UX path for delayed WorkManager transcription results (currently upload retries in background, but deferred text is not auto-committed to an active editor session).
+
+### Handoff Note
+
+- `GroqRepository.transcribe()` now has a new contract:
+  - may return `TranscriptionResult.Queued` for deferred retries
+  - may return `TranscriptionResult.Success(isPartial=true, warning=...)` for warning-based partial transcripts
+- New runtime dependencies in Phase 3 path:
+  - WorkManager retry scheduling (`WorkManagerTranscriptionRetryScheduler`, `TranscriptionRetryWorker`)
+  - connectivity-aware queue decision (`AndroidNetworkStatusProvider`)
+  - process-wide request limiter (`RequestRateLimiter`)
+- Audio output path changed to FLAC-first:
+  - upstream API content type is now inferred from file extension (`audio/flac` vs `audio/wav`)
+  - fallback remains lossless WAV when FLAC codec path fails

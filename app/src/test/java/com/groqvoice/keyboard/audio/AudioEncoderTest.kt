@@ -79,4 +79,25 @@ class AudioEncoderTest {
             outputFile.delete()
         }
     }
+
+    @Test
+    fun `writePcmToFile with WAV format returns true`() {
+        val pcm = ByteArray(1024) { 1 }
+        val outputFile = File.createTempFile("test_wav_format", ".wav")
+
+        try {
+            val success = AudioEncoder.writePcmToFile(
+                data = pcm,
+                outputFile = outputFile,
+                sampleRate = 16_000,
+                format = AudioEncoder.OutputFormat.WAV
+            )
+
+            assertTrue(success)
+            assertTrue(outputFile.exists())
+            assertTrue(outputFile.length() > 44L)
+        } finally {
+            outputFile.delete()
+        }
+    }
 }

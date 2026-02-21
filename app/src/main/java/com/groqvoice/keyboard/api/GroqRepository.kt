@@ -1,52 +1,75 @@
 package com.groqvoice.keyboard.api
 
+import com.groqvoice.keyboard.model.TranscriptionResponse
 import com.groqvoice.keyboard.model.TranscriptionResult
 import com.groqvoice.keyboard.utils.FileCacheManager
+import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.delay
+import okhttp3.ConnectionPool
+import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import java.io.File
+import java.io.IOException
+import java.net.SocketTimeoutException
+import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.random.Random
 
 /**
- * Single-source-of-truth for all Groq API interactions.
+ * Repository responsible for all Groq API interactions.
  *
- * Responsibilities:
- *  - Configure Retrofit + OkHttp (connection pool, timeouts, interceptors).
- *  - Implement retry/backoff logic for transient errors (TSD Section 5.1, 6.2).
- *  - Map HTTP errors to user-facing [TranscriptionResult] types.
- *  - Delete temporary audio files after a successful or failed upload.
- *
- * TSD Section 1.2, Appendix A.
+ * Phase 3 responsibilities (TSD Section 4.4, 5.1, 6.2, Appendix A):
+ * - Multipart upload to `/audio/transcriptions`.
+ * - `response_format=verbose_json` handling with `x_groq` metadata parsing.
+ * - Client-side throttling (20 requests/minute).
+ * - Resilient retry with exponential backoff + jitter for transient failures.
+ * - Offline/timeout queueing via WorkManager.
+ * - Strict temp-file cleanup and user-facing error mapping.
  */
 class GroqRepository(
     private val apiKeyProvider: () -> String?,
     private val fileCacheManager: FileCacheManager,
+    private val retryScheduler: TranscriptionRetryScheduler? = null,
+    private val networkStatusProvider: NetworkStatusProvider? = null,
     baseUrl: String = BASE_URL,
-    isDebug: Boolean = false
+    isDebug: Boolean = false,
+    private val rateLimiter: RequestRateLimiter = GLOBAL_RATE_LIMITER,
+    apiOverride: GroqApiService? = null
 ) {
 
     companion object {
         const val BASE_URL = "https://api.groq.com/openai/v1/"
-
-        // Retry configuration (TSD Section 5.1 / 6.2)
         private const val MAX_RETRIES = 3
-        private val RETRY_DELAYS_MS = longArrayOf(2_000, 4_000, 8_000)
+        private val RETRY_DELAYS_MS = longArrayOf(2_000L, 4_000L, 8_000L)
 
-        // OkHttp connection pool (TSD Section 6.2)
         private const val POOL_MAX_IDLE = 5
-        private val POOL_KEEP_ALIVE_MINUTES = 5L
+        private const val POOL_KEEP_ALIVE_MINUTES = 5L
 
-        private val AUDIO_CONTENT_TYPE = "audio/wav".toMediaType()
+        private const val GROQ_RATE_LIMIT_PER_MINUTE = 20
+        private const val RATE_LIMIT_WINDOW_MS = 60_000L
+
+        private const val RESPONSE_FORMAT_VERBOSE_JSON = "verbose_json"
+        private const val DEFAULT_TEMPERATURE = "0"
+        private const val DEFAULT_MODEL = "whisper-large-v3-turbo"
+
+        private val WAV_CONTENT_TYPE = "audio/wav".toMediaType()
+        private val FLAC_CONTENT_TYPE = "audio/flac".toMediaType()
         private val TEXT_CONTENT_TYPE = "text/plain".toMediaType()
+
+        private val GLOBAL_RATE_LIMITER = RequestRateLimiter(
+            maxRequests = GROQ_RATE_LIMIT_PER_MINUTE,
+            windowMs = RATE_LIMIT_WINDOW_MS
+        )
     }
 
     private val moshi: Moshi = Moshi.Builder()
@@ -55,7 +78,11 @@ class GroqRepository(
 
     private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
         .connectionPool(
-            okhttp3.ConnectionPool(POOL_MAX_IDLE, POOL_KEEP_ALIVE_MINUTES, TimeUnit.MINUTES)
+            ConnectionPool(
+                POOL_MAX_IDLE,
+                POOL_KEEP_ALIVE_MINUTES,
+                TimeUnit.MINUTES
+            )
         )
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
@@ -64,14 +91,14 @@ class GroqRepository(
         .apply {
             if (isDebug) {
                 addInterceptor(HttpLoggingInterceptor().apply {
-                    // Log headers only in debug; NEVER log body (could contain the API key)
+                    // Sensitive payloads/keys must never be logged.
                     level = HttpLoggingInterceptor.Level.HEADERS
                 })
             }
         }
         .build()
 
-    private val api: GroqApiService = Retrofit.Builder()
+    private val api: GroqApiService = apiOverride ?: Retrofit.Builder()
         .baseUrl(baseUrl)
         .client(okHttpClient)
         .addConverterFactory(MoshiConverterFactory.create(moshi))
@@ -79,96 +106,246 @@ class GroqRepository(
         .create(GroqApiService::class.java)
 
     /**
-     * Uploads [audioFile] to Groq and returns a [TranscriptionResult].
+     * Uploads [audioFile] and returns typed transcription result states.
      *
-     * Implements exponential backoff for 429/5xx errors (TSD Section 5.1).
-     * The [audioFile] is deleted after the call regardless of outcome (TSD Section 6.1).
-     *
-     * @param audioFile Temporary WAV/FLAC file produced by [com.groqvoice.keyboard.audio.AudioEncoder].
-     * @param model     Whisper model identifier.
-     * @param language  Optional ISO-639-1 language hint.
+     * @param audioFile WAV/FLAC temp file created by AudioEncoder.
+     * @param model Groq model name.
+     * @param language Optional language hint ("en", "es", etc.).
+     * @param shouldQueueOnNetworkFailure Whether offline/timeout errors should enqueue WorkManager.
      */
     suspend fun transcribe(
         audioFile: File,
-        model: String = "whisper-large-v3-turbo",
-        language: String? = null
+        model: String = DEFAULT_MODEL,
+        language: String? = null,
+        shouldQueueOnNetworkFailure: Boolean = true
     ): TranscriptionResult {
-        var lastResult: TranscriptionResult = TranscriptionResult.Failure("Unknown error")
+        if (!audioFile.exists()) {
+            return TranscriptionResult.Failure("Recording file is missing.")
+        }
 
-        repeat(MAX_RETRIES) { attempt ->
-            try {
-                val filePart = MultipartBody.Part.createFormData(
-                    name = "file",
-                    filename = audioFile.name,
-                    body = audioFile.asRequestBody(AUDIO_CONTENT_TYPE)
+        var deleteFileOnExit = true
+
+        try {
+            val throttleDecision = rateLimiter.tryAcquire()
+            if (!throttleDecision.allowed) {
+                return TranscriptionResult.Failure(
+                    message = "Too many requests. Try again in ${throttleDecision.retryAfterSeconds}s.",
+                    httpCode = 429,
+                    retryAfterSeconds = throttleDecision.retryAfterSeconds
                 )
-                val modelPart = model.toRequestBody(TEXT_CONTENT_TYPE)
-                val langPart = language?.toRequestBody(TEXT_CONTENT_TYPE)
+            }
 
-                val response = api.transcribeAudio(
-                    file = filePart,
-                    model = modelPart,
-                    language = langPart
+            // If device is currently offline, defer immediately instead of wasting retries.
+            if (shouldQueueOnNetworkFailure && retryScheduler != null &&
+                networkStatusProvider?.isNetworkAvailable() == false
+            ) {
+                val requestId = retryScheduler.enqueue(audioFile, model, language)
+                deleteFileOnExit = false
+                return TranscriptionResult.Queued(
+                    message = "No network — retry queued.",
+                    workRequestId = requestId.toString()
                 )
+            }
 
-                lastResult = when {
-                    response.isSuccessful -> {
+            val filePart = MultipartBody.Part.createFormData(
+                name = "file",
+                filename = audioFile.name,
+                body = audioFile.asRequestBody(resolveAudioContentType(audioFile))
+            )
+            val modelPart = model.toRequestBody(TEXT_CONTENT_TYPE)
+            val languagePart = language?.toRequestBody(TEXT_CONTENT_TYPE)
+            val temperaturePart = DEFAULT_TEMPERATURE.toRequestBody(TEXT_CONTENT_TYPE)
+            val responseFormatPart = RESPONSE_FORMAT_VERBOSE_JSON.toRequestBody(TEXT_CONTENT_TYPE)
+
+            for (attempt in 0 until MAX_RETRIES) {
+                try {
+                    val response = api.transcribeAudio(
+                        file = filePart,
+                        model = modelPart,
+                        language = languagePart,
+                        temperature = temperaturePart,
+                        responseFormat = responseFormatPart
+                    )
+
+                    if (response.isSuccessful) {
                         val body = response.body()
-                        if (body != null) {
-                            TranscriptionResult.Success(body.text, body.xGroq)
+                        return if (body != null) {
+                            mapSuccess(body)
                         } else {
                             TranscriptionResult.Failure("Empty response from server.")
                         }
                     }
-                    response.code() == 401 -> {
-                        TranscriptionResult.Failure("Invalid API key.", 401)
+
+                    val failure = mapHttpFailure(response)
+                    if (shouldRetry(failure.httpCode) && attempt < MAX_RETRIES - 1) {
+                        delay(resolveRetryDelayMs(attempt, response.headers()["retry-after"]))
+                        continue
                     }
-                    response.code() == 413 -> {
-                        TranscriptionResult.Failure("Recording too large (max 25 MB).", 413)
+                    return failure
+                } catch (io: IOException) {
+                    val isTimeout = io is SocketTimeoutException
+                    val isLastAttempt = attempt == MAX_RETRIES - 1
+
+                    if (!isLastAttempt) {
+                        delay(resolveRetryDelayMs(attempt, retryAfterHeader = null))
+                        continue
                     }
-                    response.code() == 429 -> {
-                        // Rate limited — honour retry-after header or use backoff
-                        val retryAfter = response.headers()["retry-after"]?.toLongOrNull()
-                            ?: RETRY_DELAYS_MS.getOrElse(attempt) { 8_000L }
-                        delay(retryAfter * 1_000)
-                        TranscriptionResult.Failure("Rate limit exceeded.", 429)
+
+                    if (shouldQueueOnNetworkFailure && retryScheduler != null &&
+                        (networkStatusProvider?.isNetworkAvailable() == false || isTimeout)
+                    ) {
+                        val requestId = retryScheduler.enqueue(audioFile, model, language)
+                        deleteFileOnExit = false
+                        return TranscriptionResult.Queued(
+                            message = "Network unavailable — retry queued.",
+                            workRequestId = requestId.toString()
+                        )
                     }
-                    response.code() >= 500 -> {
-                        delay(RETRY_DELAYS_MS.getOrElse(attempt) { 8_000L })
-                        TranscriptionResult.Failure("Server error (${response.code()}).", response.code())
-                    }
-                    else -> TranscriptionResult.Failure("Unexpected error (${response.code()}).", response.code())
+
+                    return TranscriptionResult.Failure(
+                        message = "Network error: ${io.message ?: "Unable to reach Groq."}"
+                    )
                 }
+            }
 
-                // Do not retry on success or permanent client errors
-                if (lastResult is TranscriptionResult.Success ||
-                    (lastResult as? TranscriptionResult.Failure)?.httpCode in setOf(401, 413)
-                ) return@repeat
-
-            } catch (e: java.io.IOException) {
-                lastResult = TranscriptionResult.Failure("Network error: ${e.message}")
-                delay(RETRY_DELAYS_MS.getOrElse(attempt) { 8_000L })
+            return TranscriptionResult.Failure("Transcription failed after retries.")
+        } finally {
+            // Keep queued files for WorkManager; cleanup all other paths.
+            if (deleteFileOnExit) {
+                fileCacheManager.deleteFile(audioFile)
             }
         }
-
-        // Always clean up temp file (TSD 6.1)
-        fileCacheManager.deleteFile(audioFile)
-
-        return lastResult
     }
 
     /**
-     * Validates the API key by making a lightweight test call to the /models endpoint.
-     * Returns true if the key is accepted (2xx), false otherwise.
-     *
-     * TSD Section 2.1 Step 2.
+     * Live API key validation used during onboarding and settings.
      */
     suspend fun validateApiKey(): Boolean {
         return try {
-            val response = api.listModels()
-            response.code() != 401
-        } catch (e: Exception) {
+            api.listModels().isSuccessful
+        } catch (_: Exception) {
             false
         }
     }
+
+    private fun mapSuccess(body: TranscriptionResponse): TranscriptionResult.Success {
+        val warning = body.warning?.trim()?.takeIf { it.isNotEmpty() }
+        val isPartial = isPartialWarning(warning)
+        val text = if (isPartial) appendEllipsisIfMissing(body.text) else body.text
+
+        return TranscriptionResult.Success(
+            text = text,
+            metadata = body.xGroq,
+            warning = warning,
+            isPartial = isPartial
+        )
+    }
+
+    private fun mapHttpFailure(response: Response<TranscriptionResponse>): TranscriptionResult.Failure {
+        val code = response.code()
+        val errorMessage = parseErrorMessage(response)
+        val retryAfterSeconds = parseRetryAfterSeconds(response.headers()["retry-after"])
+
+        return when (code) {
+            401 -> TranscriptionResult.Failure(
+                message = "Invalid API key.",
+                httpCode = 401
+            )
+
+            413 -> TranscriptionResult.Failure(
+                message = "Recording too large (max 25 MB).",
+                httpCode = 413
+            )
+
+            429 -> {
+                val quotaExceeded = isQuotaExceeded(errorMessage)
+                TranscriptionResult.Failure(
+                    message = if (quotaExceeded) {
+                        "Quota exceeded — upgrade your Groq plan."
+                    } else {
+                        "Rate limit exceeded. Please retry shortly."
+                    },
+                    httpCode = 429,
+                    retryAfterSeconds = retryAfterSeconds,
+                    isQuotaExceeded = quotaExceeded
+                )
+            }
+
+            in 500..599 -> TranscriptionResult.Failure(
+                message = "Server error ($code).",
+                httpCode = code
+            )
+
+            else -> TranscriptionResult.Failure(
+                message = errorMessage ?: "Unexpected error ($code).",
+                httpCode = code
+            )
+        }
+    }
+
+    private fun parseErrorMessage(response: Response<TranscriptionResponse>): String? {
+        val rawBody = response.errorBody()?.string()?.trim().orEmpty()
+        if (rawBody.isBlank()) return null
+
+        val adapter = moshi.adapter(GroqErrorEnvelope::class.java)
+        val parsed = runCatching { adapter.fromJson(rawBody) }.getOrNull()
+        return parsed?.error?.message?.takeIf { it.isNotBlank() } ?: rawBody
+    }
+
+    private fun shouldRetry(code: Int?): Boolean {
+        return code == 429 || (code != null && code >= 500)
+    }
+
+    private fun parseRetryAfterSeconds(header: String?): Int? {
+        val seconds = header?.trim()?.toDoubleOrNull() ?: return null
+        return seconds.toInt().coerceAtLeast(1)
+    }
+
+    private fun resolveRetryDelayMs(attempt: Int, retryAfterHeader: String?): Long {
+        val retryAfterSeconds = parseRetryAfterSeconds(retryAfterHeader)
+        if (retryAfterSeconds != null) {
+            return retryAfterSeconds * 1_000L
+        }
+
+        val base = RETRY_DELAYS_MS.getOrElse(attempt) { RETRY_DELAYS_MS.last() }
+        val jitter = Random.nextLong(0, (base / 4).coerceAtLeast(1L))
+        return base + jitter
+    }
+
+    private fun resolveAudioContentType(file: File): MediaType {
+        return if (file.extension.equals("flac", ignoreCase = true)) {
+            FLAC_CONTENT_TYPE
+        } else {
+            WAV_CONTENT_TYPE
+        }
+    }
+
+    private fun appendEllipsisIfMissing(text: String): String {
+        val trimmed = text.trimEnd()
+        return if (trimmed.endsWith("...")) trimmed else "$trimmed..."
+    }
+
+    private fun isPartialWarning(warning: String?): Boolean {
+        val normalized = warning?.lowercase(Locale.US).orEmpty()
+        return normalized.contains("partial") ||
+            normalized.contains("incomplete") ||
+            normalized.contains("truncat")
+    }
+
+    private fun isQuotaExceeded(errorMessage: String?): Boolean {
+        val normalized = errorMessage?.lowercase(Locale.US).orEmpty()
+        return normalized.contains("quota") ||
+            normalized.contains("billing") ||
+            normalized.contains("limit reached")
+    }
+
+    @JsonClass(generateAdapter = true)
+    private data class GroqErrorEnvelope(
+        val error: GroqErrorBody? = null
+    )
+
+    @JsonClass(generateAdapter = true)
+    private data class GroqErrorBody(
+        val message: String? = null
+    )
 }

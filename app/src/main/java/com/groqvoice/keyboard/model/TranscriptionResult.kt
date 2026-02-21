@@ -14,7 +14,15 @@ data class TranscriptionResponse(
 
     /** Optional Groq-specific metadata envelope (usage stats, request ID). */
     @Json(name = "x_groq")
-    val xGroq: GroqMetadata? = null
+    val xGroq: GroqMetadata? = null,
+
+    /**
+     * Optional server warning.
+     *
+     * TSD Section 5.1 defines "Partial Transcription" as a 200 response with a warning field.
+     * The repository inspects this field to classify a response as partial.
+     */
+    val warning: String? = null
 )
 
 /**
@@ -45,9 +53,37 @@ data class UsageStats(
  * Used by [com.groqvoice.keyboard.api.GroqRepository] to communicate results upstream.
  */
 sealed class TranscriptionResult {
-    /** Successful transcription with committed text. */
-    data class Success(val text: String, val metadata: GroqMetadata? = null) : TranscriptionResult()
+    /**
+     * Successful transcription with normalized text and optional warning/metadata.
+     *
+     * @param text Final text to commit to the editor (already post-processed by the repository).
+     * @param metadata Optional Groq `x_groq` usage metadata.
+     * @param warning Optional warning returned by Groq.
+     * @param isPartial True when server warning indicates a partial transcription.
+     */
+    data class Success(
+        val text: String,
+        val metadata: GroqMetadata? = null,
+        val warning: String? = null,
+        val isPartial: Boolean = false
+    ) : TranscriptionResult()
+
+    /**
+     * Upload was deferred and persisted for retry using WorkManager.
+     *
+     * @param message User-facing status text.
+     * @param workRequestId Optional id for telemetry/debugging.
+     */
+    data class Queued(
+        val message: String,
+        val workRequestId: String? = null
+    ) : TranscriptionResult()
 
     /** A known API/network error with an appropriate user-facing [message]. */
-    data class Failure(val message: String, val httpCode: Int? = null) : TranscriptionResult()
+    data class Failure(
+        val message: String,
+        val httpCode: Int? = null,
+        val retryAfterSeconds: Int? = null,
+        val isQuotaExceeded: Boolean = false
+    ) : TranscriptionResult()
 }

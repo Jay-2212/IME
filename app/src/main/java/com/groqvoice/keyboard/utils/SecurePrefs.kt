@@ -64,6 +64,22 @@ class SecurePrefs(context: Context) {
     /** Returns true if the user has completed onboarding. */
     fun isOnboardingComplete(): Boolean = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
 
+    /** Persists the double-tap-space preference. */
+    fun setDoubleTapPeriodEnabled(enabled: Boolean) =
+        prefs.edit().putBoolean(KEY_DOUBLE_TAP_PERIOD, enabled).apply()
+
+    /** Returns whether double-tap-space should insert ". ". */
+    fun isDoubleTapPeriodEnabled(): Boolean =
+        prefs.getBoolean(KEY_DOUBLE_TAP_PERIOD, true)
+
+    /** Persists haptic feedback preference. */
+    fun setHapticFeedbackEnabled(enabled: Boolean) =
+        prefs.edit().putBoolean(KEY_HAPTIC_FEEDBACK, enabled).apply()
+
+    /** Returns whether haptic feedback is enabled. */
+    fun isHapticFeedbackEnabled(): Boolean =
+        prefs.getBoolean(KEY_HAPTIC_FEEDBACK, true)
+
     /**
      * Clears the API key from memory after wiping the byte array.
      * Call when the app is backgrounded if memory-wipe feature is enabled (TSD Section 2.1).

@@ -48,6 +48,7 @@
     <string name="banner_no_api_key">Tap to configure API key</string>
     <string name="banner_no_network">No network — will retry when connected</string>
     <string name="banner_quota_exceeded">Quota exceeded — upgrade your Groq plan</string>
+    <string name="banner_partial_transcription">Partial transcription received — text may be incomplete</string>
     <string name="banner_no_speech">No speech detected</string>
     <string name="banner_speak_softer">Please speak softer</string>
     <string name="banner_voice_disabled_security">Voice typing disabled for security in this field</string>

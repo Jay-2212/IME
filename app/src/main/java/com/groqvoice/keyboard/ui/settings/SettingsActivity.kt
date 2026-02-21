@@ -83,6 +83,26 @@ class SettingsActivity : AppCompatActivity() {
                     }
                 }
 
+            // Bridge double-tap preference ↔ SecurePrefs
+            findPreference<androidx.preference.SwitchPreferenceCompat>(SecurePrefs.KEY_DOUBLE_TAP_PERIOD)
+                ?.apply {
+                    isChecked = securePrefs.isDoubleTapPeriodEnabled()
+                    setOnPreferenceChangeListener { _, newValue ->
+                        securePrefs.setDoubleTapPeriodEnabled(newValue as Boolean)
+                        true
+                    }
+                }
+
+            // Bridge haptic preference ↔ SecurePrefs
+            findPreference<androidx.preference.SwitchPreferenceCompat>(SecurePrefs.KEY_HAPTIC_FEEDBACK)
+                ?.apply {
+                    isChecked = securePrefs.isHapticFeedbackEnabled()
+                    setOnPreferenceChangeListener { _, newValue ->
+                        securePrefs.setHapticFeedbackEnabled(newValue as Boolean)
+                        true
+                    }
+                }
+
             // Clear transcription log action
             findPreference<Preference>("clear_transcription_log")
                 ?.setOnPreferenceClickListener {

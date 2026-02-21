@@ -73,7 +73,11 @@ class VoiceActivityDetector(
 
         var i = 0
         while (i + 1 < chunk.size) {
-            val sample = (chunk[i + 1].toInt() shl 8) or (chunk[i].toInt() and 0xFF)
+            // Convert little-endian PCM16 bytes to signed sample.
+            val sample = (
+                (chunk[i + 1].toInt() shl 8) or
+                    (chunk[i].toInt() and 0xFF)
+                ).toShort().toInt()
             sumSquares += sample.toDouble() * sample.toDouble()
             sampleCount++
             i += 2
