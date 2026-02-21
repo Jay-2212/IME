@@ -54,62 +54,65 @@
         android:contentDescription="@string/key_mic_description"
         app:srcCompat="@drawable/ic_mic_material"
         app:backgroundTint="?attr/colorSecondary"
+        app:fabCustomSize="@dimen/mic_button_diameter"
         app:elevation="@dimen/mic_button_elevation"
         app:maxImageSize="@dimen/mic_icon_size"
         style="@style/Widget.GroqVoiceKeyboard.MicButton" />
 
-    <!-- Bottom row: Backspace + Spacebar (TSD Section 3.2) -->
+    <!-- Bottom row: Settings + Spacebar + Backspace (TSD Section 3.2) -->
     <LinearLayout
+        android:id="@+id/bottom_row"
         android:layout_width="match_parent"
         android:layout_height="@dimen/key_height"
         android:layout_marginTop="16dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <!-- Backspace key -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_backspace"
-            android:layout_width="@dimen/key_backspace_width"
-            android:layout_height="match_parent"
-            android:contentDescription="@string/key_backspace_description"
-            android:text="⌫"
-            android:textColor="?attr/colorOnSecondary"
-            app:backgroundTint="?attr/colorSecondary"
-            app:cornerRadius="@dimen/key_corner_radius" />
-
-        <!-- Flexible spacer -->
-        <Space
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1" />
-
         <!-- Settings gear shortcut -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_settings"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="wrap_content"
+            android:layout_width="@dimen/key_control_width"
             android:layout_height="match_parent"
             android:contentDescription="@string/tooltip_settings"
-            android:paddingHorizontal="12dp"
+            android:minWidth="0dp"
             android:text="⚙"
+            android:textSize="18sp"
             android:textColor="?attr/colorOnSurface"
             app:strokeColor="@color/disabled" />
 
-        <!-- Flexible spacer -->
         <Space
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1" />
+            android:layout_width="@dimen/key_row_gap"
+            android:layout_height="match_parent" />
 
         <!-- Spacebar key -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_spacebar"
-            android:layout_width="@dimen/key_spacebar_width"
+            android:layout_width="0dp"
             android:layout_height="match_parent"
+            android:layout_weight="1"
             android:contentDescription="@string/key_space_description"
+            android:minWidth="0dp"
             android:text="@string/app_name"
             android:textColor="?attr/colorOnSecondary"
             android:textSize="10sp"
+            app:backgroundTint="?attr/colorSecondary"
+            app:cornerRadius="@dimen/key_corner_radius" />
+
+        <Space
+            android:layout_width="@dimen/key_row_gap"
+            android:layout_height="match_parent" />
+
+        <!-- Backspace key -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_backspace"
+            android:layout_width="@dimen/key_control_width"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/key_backspace_description"
+            android:minWidth="0dp"
+            android:text="⌫"
+            android:textSize="18sp"
+            android:textColor="?attr/colorOnSecondary"
             app:backgroundTint="?attr/colorSecondary"
             app:cornerRadius="@dimen/key_corner_radius" />
 

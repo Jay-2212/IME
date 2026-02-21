@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Base app theme (MaterialComponents + dynamic color overlay capable). -->
-    <style name="Theme.GroqVoiceKeyboard" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <!-- Base app theme (Material 3 + dynamic color overlay capable). -->
+    <style name="Theme.GroqVoiceKeyboard" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/accent_primary</item>
         <item name="colorOnPrimary">@color/on_accent_primary</item>
         <item name="colorSecondary">@color/accent_secondary</item>
         <item name="colorOnSecondary">@color/on_accent_secondary</item>
         <item name="colorSurface">@color/surface</item>
+        <item name="colorSurfaceVariant">@color/surface_variant</item>
         <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorOutline">@color/disabled</item>
         <item name="colorError">@color/error</item>
         <item name="colorOnError">@color/on_error</item>
 
@@ -41,17 +43,17 @@
         <item name="preferenceCategoryTitleTextColor">@color/accent_primary</item>
     </style>
 
-    <style name="TextAppearance.GroqVoiceKeyboard.PreferenceCategory" parent="TextAppearance.MaterialComponents.Subtitle2">
+    <style name="TextAppearance.GroqVoiceKeyboard.PreferenceCategory" parent="TextAppearance.Material3.TitleSmall">
         <item name="android:textAllCaps">true</item>
         <item name="android:letterSpacing">0.06</item>
         <item name="android:textColor">@color/accent_primary</item>
     </style>
 
-    <style name="TextAppearance.GroqVoiceKeyboard.PreferenceTitle" parent="TextAppearance.MaterialComponents.Body1">
+    <style name="TextAppearance.GroqVoiceKeyboard.PreferenceTitle" parent="TextAppearance.Material3.BodyLarge">
         <item name="android:textColor">@color/text_primary</item>
     </style>
 
-    <style name="TextAppearance.GroqVoiceKeyboard.PreferenceSummary" parent="TextAppearance.MaterialComponents.Caption">
+    <style name="TextAppearance.GroqVoiceKeyboard.PreferenceSummary" parent="TextAppearance.Material3.BodyMedium">
         <item name="android:textColor">@color/disabled</item>
     </style>
 

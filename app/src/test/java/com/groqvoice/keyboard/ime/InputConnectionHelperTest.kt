@@ -2,6 +2,7 @@ package com.groqvoice.keyboard.ime
 
 import android.text.InputType
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.ExtractedText
 import android.view.inputmethod.InputConnection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -28,6 +29,13 @@ class InputConnectionHelperTest {
         verify(ic).commitText("hello world", 1)
         verify(ic).finishComposingText()
         verify(ic).endBatchEdit()
+    }
+
+    @Test
+    fun `commitTranscription trims leading whitespace before committing`() {
+        val ic: InputConnection = mock()
+        InputConnectionHelper.commitTranscription(ic, "   \n\thello world")
+        verify(ic).commitText("hello world", 1)
     }
 
     @Test
@@ -58,6 +66,30 @@ class InputConnectionHelperTest {
         whenever(ic.getTextBeforeCursor(2, 0)).thenReturn(emoji)
         InputConnectionHelper.deleteCharacter(ic)
         verify(ic).deleteSurroundingText(2, 0)
+    }
+
+    @Test
+    fun `deleteCharacter deletes selected text first`() {
+        val ic: InputConnection = mock()
+        whenever(ic.getSelectedText(0)).thenReturn("selected")
+        InputConnectionHelper.deleteCharacter(ic)
+        verify(ic).commitText("", 1)
+    }
+
+    @Test
+    fun `deleteCharacter falls back to extracted selection when selectedText unsupported`() {
+        val ic: InputConnection = mock()
+        val extracted = ExtractedText().apply {
+            selectionStart = 2
+            selectionEnd = 4
+        }
+        whenever(ic.getSelectedText(0)).thenReturn(null)
+        whenever(ic.getExtractedText(org.mockito.kotlin.any(), org.mockito.kotlin.eq(0)))
+            .thenReturn(extracted)
+
+        InputConnectionHelper.deleteCharacter(ic)
+
+        verify(ic).commitText("", 1)
     }
 
     // ── handleSpaceKey ─────────────────────────────────────────────────────────

@@ -140,11 +140,16 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
             super.onViewCreated(view, savedInstanceState)
+            val surface = MaterialColors.getColor(
+                view,
+                com.google.android.material.R.attr.colorSurface
+            )
+            val primary = MaterialColors.getColor(
+                view,
+                com.google.android.material.R.attr.colorPrimary
+            )
             listView.setBackgroundColor(
-                MaterialColors.getColor(
-                    view,
-                    com.google.android.material.R.attr.colorSurface
-                )
+                MaterialColors.layer(surface, primary, 0.04f)
             )
         }
     }

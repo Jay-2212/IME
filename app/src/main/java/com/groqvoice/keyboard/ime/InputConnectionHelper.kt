@@ -1,7 +1,8 @@
 package com.groqvoice.keyboard.ime
 
-import android.view.inputmethod.InputConnection
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.ExtractedTextRequest
+import android.view.inputmethod.InputConnection
 
 /**
  * Utility functions for safe, app-compatible text manipulation via [InputConnection].
@@ -24,10 +25,13 @@ object InputConnectionHelper {
      * @param text Finalized transcription text to insert.
      */
     fun commitTranscription(ic: InputConnection, text: String) {
+        val normalizedText = text.trimStart()
         ic.beginBatchEdit()
         try {
             // Commit first so any active composing span is replaced rather than committed as text.
-            ic.commitText(text, 1)
+            if (normalizedText.isNotEmpty()) {
+                ic.commitText(normalizedText, 1)
+            }
             ic.finishComposingText()
         } finally {
             ic.endBatchEdit()
@@ -63,6 +67,12 @@ object InputConnectionHelper {
      * TSD Section 4.4 — Backspace handling.
      */
     fun deleteCharacter(ic: InputConnection) {
+        if (hasActiveSelection(ic)) {
+            // Replace selected text, matching standard keyboard backspace behavior.
+            ic.commitText("", 1)
+            return
+        }
+
         val textBefore = ic.getTextBeforeCursor(2, 0) ?: run {
             ic.deleteSurroundingText(1, 0)
             return
@@ -76,6 +86,17 @@ object InputConnectionHelper {
             1
         }
         ic.deleteSurroundingText(deleteCount, 0)
+    }
+
+    private fun hasActiveSelection(ic: InputConnection): Boolean {
+        val selectedText = ic.getSelectedText(0)
+        if (selectedText != null) {
+            return selectedText.isNotEmpty()
+        }
+
+        val extractedText = ic.getExtractedText(ExtractedTextRequest(), 0) ?: return false
+        return extractedText.selectionStart >= 0 &&
+                extractedText.selectionEnd > extractedText.selectionStart
     }
 
     /**

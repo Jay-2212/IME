@@ -23,6 +23,7 @@ build/
 # Environment / secret files
 .env
 local.env
+keystore.properties
 
 # macOS
 .DS_Store

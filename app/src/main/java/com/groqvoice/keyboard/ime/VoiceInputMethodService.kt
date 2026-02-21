@@ -85,8 +85,8 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
     private var isIncognitoMode = false
 
     companion object {
-        private const val BACKSPACE_HOLD_TRIGGER_MS = 500L
-        private const val BACKSPACE_REPEAT_INTERVAL_MS = 100L
+        private const val BACKSPACE_HOLD_TRIGGER_MS = 350L
+        private const val BACKSPACE_REPEAT_INTERVAL_MS = 60L
     }
 
     override fun onCreate() {
@@ -229,22 +229,45 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
     }
 
     private fun wireBackspaceButton(view: KeyboardView) {
-        view.onBackspaceClick = { performBackspace() }
-        view.onBackspaceLongClick = {
-            if (!isBackspaceRepeating) {
-                isBackspaceRepeating = true
-                backspaceStartRunnable = Runnable {
-                    if (isBackspaceRepeating) {
-                        performBackspace()
-                        mainHandler.postDelayed(backspaceRepeatRunnable, BACKSPACE_REPEAT_INTERVAL_MS)
-                    }
-                }.also { runnable ->
-                    mainHandler.postDelayed(runnable, BACKSPACE_HOLD_TRIGGER_MS)
+        view.onBackspaceTouchListener = { event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    performBackspace()
+                    startBackspaceRepeat()
+                    true
                 }
+
+                MotionEvent.ACTION_MOVE -> {
+                    val isInsideButton = event.x >= 0f &&
+                            event.x <= view.btnBackspace.width &&
+                            event.y >= 0f &&
+                            event.y <= view.btnBackspace.height
+                    if (!isInsideButton) {
+                        stopBackspaceRepeat()
+                    }
+                    true
+                }
+
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    stopBackspaceRepeat()
+                    true
+                }
+
+                else -> false
             }
-            true
         }
-        view.onBackspaceTouchUp = { stopBackspaceRepeat() }
+    }
+
+    private fun startBackspaceRepeat() {
+        stopBackspaceRepeat()
+        isBackspaceRepeating = true
+        backspaceStartRunnable = Runnable {
+            if (!isBackspaceRepeating) return@Runnable
+            mainHandler.post(backspaceRepeatRunnable)
+        }.also { runnable ->
+            mainHandler.postDelayed(runnable, BACKSPACE_HOLD_TRIGGER_MS)
+        }
     }
 
     private fun stopBackspaceRepeat() {

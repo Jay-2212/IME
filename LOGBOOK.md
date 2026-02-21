@@ -900,3 +900,257 @@ When mic/transcription regressions reappear, follow this order:
 
 **Signed:** Codex  
 **Date (UTC):** 2026-02-21T05:03:28Z
+
+---
+
+## Entry 9
+
+**Timestamp:** 2026-02-21T05:36:06Z
+
+**Current Phase:** UI Visual Overhaul (Material You Polish)
+
+**Agent:** Codex
+
+**Status:** COMPLETE (theme token upgrade + dynamic tonal UI polish)
+
+### What Was Completed
+
+1. **Material You token upgrade (base theme)**
+   - Migrated app theme parent to Material 3 baseline while keeping component compatibility:
+     - `app/src/main/res/values/themes.xml`
+   - Added Material You surface tokens for better dynamic color mapping:
+     - `colorSurfaceVariant`
+     - `colorOutline`
+
+2. **Keyboard dynamic tonal styling + fluid motion polish**
+   - `KeyboardView` now computes and applies runtime tonal surfaces from theme colors (dynamic color-aware):
+     - Gradient keyboard surface using layered `colorSurface` + `colorPrimary`/`colorSecondary`
+     - Tonal key backgrounds/strokes/ripples for space, backspace, and settings keys
+     - Updated mic ripple tint to harmonize with active theme
+   - Added subtle interaction and entrance animations:
+     - Key press scale-in/scale-out feedback
+     - Initial staggered keyboard reveal animation (state label, mic, bottom row)
+   - Files:
+     - `app/src/main/java/com/groqvoice/keyboard/ime/KeyboardView.kt`
+     - `app/src/main/res/layout/keyboard_view.xml`
+     - `app/src/main/res/values/dimens.xml`
+
+3. **Settings visual consistency with dynamic palettes**
+   - Tuned settings list background using tonal layering (`surface` + low-alpha `primary`) for better Material You depth:
+     - `app/src/main/java/com/groqvoice/keyboard/ui/settings/SettingsActivity.kt`
+
+### Validation
+
+- `./gradlew testDebugUnitTest` passed.
+- `./gradlew assembleDebug` passed.
+- No functional recording/transcription state-machine logic was changed in this pass.
+
+### Notes / Guardrails
+
+- Material 3 widget parent `Widget.Material3.FloatingActionButton` was unavailable in the current dependency set, so compatible MaterialComponents widget parents were retained for button styles.
+- Dynamic colors remain applied through:
+  - `DynamicColors.applyToActivitiesIfAvailable(...)` in app startup
+  - `DynamicColors.wrapContextIfAvailable(...)` in IME input view creation
+
+### Recommended Next Steps
+
+1. Device-level visual QA on Android 12+ and Android 11 fallback (check tonal contrast and perceived depth).
+2. Fine-tune animation timing constants after real typing/voice session feedback.
+3. If desired, migrate selected widgets to Material 3 equivalents once dependency versions are upgraded.
+
+**Signed:** Codex  
+**Date (UTC):** 2026-02-21T05:36:06Z
+
+---
+
+## Entry 10
+
+**Timestamp:** 2026-02-21T07:24:52Z
+
+**Current Phase:** Release Readiness (Icon + Play Publish Prep)
+
+**Agent:** Codex
+
+**Status:** PARTIAL COMPLETE (icon complete, publishing blocked by release signing setup)
+
+### What Was Completed
+
+1. **App icon polish + launcher asset fix**
+   - Updated adaptive icon brand styling:
+     - `app/src/main/res/drawable/ic_launcher_background.xml`
+     - `app/src/main/res/drawable/ic_launcher_foreground.xml`
+   - Generated valid fallback launcher PNGs for all densities (previous files were zero-byte and broke release merge):
+     - `app/src/main/res/mipmap-mdpi/ic_launcher.png`
+     - `app/src/main/res/mipmap-hdpi/ic_launcher.png`
+     - `app/src/main/res/mipmap-xhdpi/ic_launcher.png`
+     - `app/src/main/res/mipmap-xxhdpi/ic_launcher.png`
+     - `app/src/main/res/mipmap-xxxhdpi/ic_launcher.png`
+   - Generated Play listing icon asset:
+     - `play-store/icon-512.png` (512x512 PNG)
+
+2. **Device deployment for immediate QA**
+   - `./gradlew installDebug` succeeded and installed to device `SM-S928B`.
+
+3. **Release packaging check**
+   - `./gradlew bundleRelease` now succeeds after mipmap fix.
+   - Output bundle created:
+     - `app/build/outputs/bundle/release/app-release.aab`
+
+### Blocker Identified
+
+- Current release AAB is **not signed with an upload key** yet.
+- Verification commands show unsigned state (`Not a signed jar file`), so it is not upload-ready for Play until signing is configured.
+
+### Next Required Steps
+
+1. Create/import upload keystore.
+2. Configure release signing (`build.gradle.kts` or Gradle properties).
+3. Rebuild and verify signed AAB.
+4. Upload signed AAB in Play Console internal testing track.
+
+**Signed:** Codex  
+**Date (UTC):** 2026-02-21T07:24:52Z
+
+---
+
+## Entry 11
+
+**Timestamp:** 2026-02-21T07:27:36Z
+
+**Current Phase:** Release Compliance Prep (Play Policy Target SDK)
+
+**Agent:** Codex
+
+**Status:** COMPLETE (target SDK blocker resolved locally)
+
+### What Was Completed
+
+1. **Installed Android 35 toolchain locally**
+   - Installed:
+     - `platforms;android-35`
+     - `build-tools;35.0.0`
+
+2. **Updated project SDK levels for Play upload compliance**
+   - `compileSdk` updated to `35`
+   - `targetSdk` updated to `35`
+   - File:
+     - `app/build.gradle.kts`
+
+3. **Rebuilt artifacts after SDK update**
+   - `./gradlew assembleDebug` passed.
+   - `./gradlew bundleRelease` passed.
+
+### Remaining Publishing Blocker
+
+- Release AAB is still unsigned with upload key and therefore not Play-upload ready.
+- Next required action is release signing configuration with an upload keystore.
+
+**Signed:** Codex  
+**Date (UTC):** 2026-02-21T07:27:36Z
+
+---
+
+## Entry 12
+
+**Timestamp:** 2026-02-21T07:28:53Z
+
+**Current Phase:** Release Signing Setup (Gradle Wiring)
+
+**Agent:** Codex
+
+**Status:** COMPLETE (infrastructure added; awaiting keystore secrets)
+
+### What Was Completed
+
+1. **Added release signing wiring in Gradle**
+   - `app/build.gradle.kts` now reads `keystore.properties` when present and applies a `release` signing config automatically.
+   - Release builds continue to work without `keystore.properties` (unsigned output), preserving current local workflow.
+
+2. **Added secure template + ignore rule**
+   - Added signing template file:
+     - `keystore.properties.example`
+   - Added secret ignore rule:
+     - `.gitignore` now ignores `keystore.properties`
+
+3. **Validation**
+   - `./gradlew bundleRelease` passes with the new wiring.
+
+### Remaining Action
+
+- Create `keystore.properties` with real upload key values (or import existing upload key), then rebuild to produce a signed AAB suitable for Play upload.
+
+**Signed:** Codex  
+**Date (UTC):** 2026-02-21T07:28:53Z
+
+---
+
+## Entry 13
+
+**Timestamp:** 2026-02-21T07:36:35Z
+
+**Current Phase:** Release Signing Execution (Upload-Ready Bundle)
+
+**Agent:** Codex
+
+**Status:** COMPLETE (signed release pipeline now active locally)
+
+### What Was Completed
+
+1. **Created upload keystore and wired signing end-to-end**
+   - Upload keystore created at:
+     - `/Users/jaybharti/.keystores/groqvoice-upload.jks`
+   - Project-local signing properties created (ignored by git):
+     - `/Users/jaybharti/Documents/App/IME/keystore.properties`
+   - Credential backup file created (restricted permissions):
+     - `/Users/jaybharti/.keystores/groqvoice-upload-credentials.txt`
+
+2. **Built signed release bundle**
+   - Command: `./gradlew clean bundleRelease`
+   - Output:
+     - `/Users/jaybharti/Documents/App/IME/app/build/outputs/bundle/release/app-release.aab`
+
+3. **Verified signing configuration is active for release variant**
+   - `./gradlew signingReport` shows release config using:
+     - Store: `/Users/jaybharti/.keystores/groqvoice-upload.jks`
+     - Alias: `upload`
+   - Release cert fingerprints:
+     - SHA1: `3F:78:AA:43:31:CC:02:9A:9B:D7:12:64:58:48:FE:CE:FF:7A:54:8C`
+     - SHA-256: `93:65:51:BA:08:52:EA:56:3D:EF:2B:F2:83:15:71:25:AB:F1:0E:91:35:3D:F5:0E:AA:0B:EB:F0:E0:21:2C:41`
+
+### Notes
+
+- `keystore.properties` is now git-ignored and should never be committed.
+- Existing `keystore.properties.example` remains as template for reproducible setup.
+
+### Next Step
+
+- Upload the AAB to Google Play Console (Internal/Closed test track first), then complete app content and testing requirements for personal accounts.
+
+**Signed:** Codex  
+**Date (UTC):** 2026-02-21T07:36:35Z
+
+---
+
+## Entry 14
+
+**Timestamp:** 2026-02-21T13:46:24Z
+
+**Current Phase:** Project Wrap-up
+
+**Agent:** Codex
+
+**Status:** COMPLETE
+
+### Outcome
+
+- User decided not to publish the app to Google Play due to one-time developer registration fee constraints.
+- Project remains a proof-of-concept deliverable.
+- Final request: keep repository up to date and push all completed work to GitHub.
+
+### Notes
+
+- All implementation and release-prep work remains documented in prior entries.
+- No additional feature/code changes required beyond repository synchronization.
+
+**Signed:** Codex  
+**Date (UTC):** 2026-02-21T13:46:24Z
