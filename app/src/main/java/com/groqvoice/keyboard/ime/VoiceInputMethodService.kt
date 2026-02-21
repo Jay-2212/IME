@@ -11,6 +11,7 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.view.ContextThemeWrapper
 import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -102,7 +103,8 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
     }
 
     override fun onCreateInputView(): View {
-        keyboardView = KeyboardView(this).also { view ->
+        val themedContext = ContextThemeWrapper(this, R.style.Theme_GroqVoiceKeyboard)
+        keyboardView = KeyboardView(themedContext).also { view ->
             wireMicButton(view)
             wireBackspaceButton(view)
             view.onSpacebarClick = { handleSpaceKey() }
