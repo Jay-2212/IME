@@ -90,8 +90,8 @@ class WelcomeActivity : AppCompatActivity() {
                     it.setMargins(8, 0, 8, 0)
                 }
                 background = getDrawable(
-                    if (i == currentPage) com.groqvoice.keyboard.R.drawable.ic_back
-                    else android.R.drawable.presence_invisible
+                    if (i == currentPage) com.groqvoice.keyboard.R.drawable.dot_active
+                    else com.groqvoice.keyboard.R.drawable.dot_inactive
                 )
             }
             container.addView(dot)

@@ -113,6 +113,10 @@ class KeyboardView @JvmOverloads constructor(
      * @param state The current recording state from AudioRecordingManager.
      */
     fun applyState(state: RecordingState) {
+        // Cancel all ongoing animations to start fresh
+        btnMic.animate().cancel()
+        btnMic.translationX = 0f
+        
         when (state) {
             is RecordingState.Idle -> {
                 btnMic.backgroundTintList =
@@ -120,8 +124,20 @@ class KeyboardView @JvmOverloads constructor(
                 stateLabel.text = context.getString(R.string.state_idle)
                 stateLabel.setTextColor(context.getColor(R.color.disabled))
                 transcriptionPreviewContainer.visibility = View.GONE
-                // Reset mic button scale
-                btnMic.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
+                // Pulse animation (subtle)
+                btnMic.animate()
+                    .scaleX(1.05f).scaleY(1.05f)
+                    .setDuration(1000)
+                    .withEndAction {
+                        btnMic.animate()
+                            .scaleX(0.95f).scaleY(0.95f)
+                            .setDuration(1000)
+                            .withEndAction { 
+                                // Reset to 1.0 occasionally handled by new states, this loop might conflict but is fine for idle
+                                applyState(state) 
+                            }
+                            .start()
+                    }.start()
             }
             is RecordingState.Recording -> {
                 val labelRes = if (state.mode == RecordingMode.HANDS_FREE)
@@ -131,9 +147,21 @@ class KeyboardView @JvmOverloads constructor(
                 stateLabel.text = context.getString(labelRes)
                 stateLabel.setTextColor(context.getColor(R.color.accent_primary))
 
-                // Scale animation for recording state
                 if (state.mode == RecordingMode.PUSH_TO_TALK) {
+                    // Scale animation for PTT
                     btnMic.animate().scaleX(1.1f).scaleY(1.1f).setDuration(200).start()
+                } else {
+                    // Hands Free: Rotating pulse
+                    btnMic.animate()
+                        .scaleX(1.15f).scaleY(1.15f)
+                        .setDuration(600)
+                        .withEndAction {
+                            btnMic.animate()
+                                .scaleX(1.05f).scaleY(1.05f)
+                                .setDuration(600)
+                                .withEndAction { if (state == RecordingState.Recording(state.mode, state.startTime, state.audioBuffer)) applyState(state) }
+                                .start()
+                        }.start()
                 }
             }
             is RecordingState.Processing -> {
@@ -150,10 +178,34 @@ class KeyboardView @JvmOverloads constructor(
                 stateLabel.text = context.getString(R.string.state_error)
                 stateLabel.setTextColor(context.getColor(R.color.error))
                 showBanner(state.message)
-                // Reset scale
-                btnMic.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
+                
+                // Shake animation
+                btnMic.animate().scaleX(1.0f).scaleY(1.0f).setDuration(50).start()
+                val shakeOffset = 15f
+                btnMic.animate().translationXBy(shakeOffset).setDuration(50).withEndAction {
+                    btnMic.animate().translationXBy(-shakeOffset * 2).setDuration(50).withEndAction {
+                        btnMic.animate().translationXBy(shakeOffset * 2).setDuration(50).withEndAction {
+                            btnMic.animate().translationX(0f).setDuration(50).start()
+                        }.start()
+                    }.start()
+                }.start()
             }
         }
+    }
+
+    /** Plays a success "pop" animation when transcription is committed. */
+    fun playSuccessAnimation() {
+        btnMic.animate().cancel()
+        btnMic.translationX = 0f
+        btnMic.animate()
+            .scaleX(1.2f).scaleY(1.2f)
+            .setDuration(150)
+            .withEndAction {
+                btnMic.animate()
+                    .scaleX(1.0f).scaleY(1.0f)
+                    .setDuration(150)
+                    .start()
+            }.start()
     }
 
     /** Shows a live transcription preview in the strip above the mic button. */

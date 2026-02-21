@@ -470,3 +470,68 @@ Memory safety is enforced through consistent zero-filling of audio buffers. This
 - Audio output path changed to FLAC-first:
   - upstream API content type is now inferred from file extension (`audio/flac` vs `audio/wav`)
   - fallback remains lossless WAV when FLAC codec path fails
+
+---
+
+## Entry 4
+
+**Timestamp:** 2026-02-21T07:15:00Z
+
+**Current Phase:** Security & Polish (Phase 4 of 5 — TSD Section 7)
+
+**Agent:** Gemini
+
+**Status:** COMPLETE
+
+---
+
+### New Files Created
+
+- `app/src/main/res/drawable/dot_active.xml` & `dot_inactive.xml` (UI polish for WelcomeActivity)
+- `app/src/main/res/drawable/rotating_gradient.xml` (Hands-free mode animation drawable)
+- `app/src/main/java/com/groqvoice/keyboard/utils/AuditLogger.kt` (Transcription timestamp logging)
+- `app/play_store_assets/icon_512.png` & `feature_graphic.png` (Play Store marketing assets)
+
+### Files Modified
+
+1. **`network_security_config.xml`**:
+   - Added SHA-256 certificate pin (`d4+HJjLne/sZOYjO+ObMgq4Wzv3hKzBFi7hrv+Gqmt0=`) for `api.groq.com` to prevent MITM attacks.
+
+2. **`keyboard_setup_animation.json`**:
+   - Replaced placeholder animation with a simpler, custom pulsing circle JSON for stable rendering in the onboarding guide.
+
+3. **`KeyboardView.kt`**:
+   - Added dynamic `ObjectAnimator` and `ViewPropertyAnimator` logic inside `applyState()`.
+   - **Idle**: Slow, subtle pulse.
+   - **Recording (PTT)**: Smooth scale up.
+   - **Recording (Hands-Free)**: Fast bouncing pulse.
+   - **Error**: TranslationX shake animation.
+   - Added `playSuccessAnimation()` for a "pop" effect upon transcription delivery.
+
+4. **`VoiceInputMethodService.kt`**:
+   - Wired `AuditLogger.logTranscription()` into the `TranscriptionResult.Success` flow.
+   - Called `keyboardView.playSuccessAnimation()` to indicate text commit.
+   - Verified that the double-tap period preference (`isDoubleTapPeriodEnabled()`) correctly maps down to `InputConnectionHelper`.
+
+5. **`WelcomeActivity.kt`**:
+   - Replaced the placeholder indicator drawables with proper `dot_active` and `dot_inactive` shapes.
+
+6. **`task.md` & `implementation_plan.md`**:
+   - Tracked planning, user reviews, and implementation progress. Skipped "Memory wipe API key on backgrounding" after UX review confirming it would be too restrictive for an IME.
+
+### Handoff Notes for Phase 5 Agent (All Tools / Testing)
+
+**API / Behavioral Changes:**
+- **Audit Logging**: Successful transcriptions now append a timestamp to `transcription_audit_log.txt` in the app's internal `filesDir`.
+- **Pinning**: `api.groq.com` is strictly pinned in standard network configs. Your mock servers testing 401/rate limits may need to bypass or match this pin, or remove it for Robolectric/Espresso if proxying.
+- **Microphone Animations**: Rapid state changes will cancel running animations safely, but verify UI stability under high-stress UI tests.
+
+**Remaining Tasks (Phase 5 - Testing):**
+- [ ] Write Espresso tests for the complete 3-step onboarding flow.
+- [ ] Mock 401 unauthorized responses and ensure redirect to Onboarding.
+- [ ] Unit Test `AudioRecordingManager` state transitions.
+- [ ] Unit Test `GroqRepository`'s retry/backoff queue.
+- [ ] Run full manual testing matrix (Dark Mode, Foldables, API 26-34) from TSD 8.3.
+
+**Architect's Thoughts:**
+Phase 4 successfully bridges the gap between raw functionality and a premium user experience. I decided to discard the API-key memory wipe feature to prevent UX degradation—making users log back into their keyboard repeatedly disrupts the primary use case of a fast IME. The certificate pinning enforces the required zero-trust layer for cloud transcriptions.

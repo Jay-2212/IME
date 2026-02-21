@@ -86,6 +86,7 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
         super.onCreate()
         securePrefs = SecurePrefs(this)
         fileCacheManager = FileCacheManager(this)
+        val auditLogger = com.groqvoice.keyboard.utils.AuditLogger(this)
         audioManager = AudioRecordingManager(this, fileCacheManager)
         groqRepository = GroqRepository(
             apiKeyProvider = { securePrefs.getApiKey() },
@@ -282,7 +283,9 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
                                 )
                             } else {
                                 keyboardView?.hideBanner()
+                                keyboardView?.playSuccessAnimation()
                             }
+                            com.groqvoice.keyboard.utils.AuditLogger(this@VoiceInputMethodService).logTranscription()
                             keyboardView?.applyState(RecordingState.Idle)
                         }
 
