@@ -160,4 +160,34 @@ object InputConnectionHelper {
             false
         }
     }
+
+    /**
+     * Handles the enter key based on [EditorInfo.imeOptions].
+     * Can trigger actions like Search, Go, Send, Next, Done, or just insert a newline.
+     * 
+     * @param ic Active [InputConnection]
+     * @param editorInfo The current [EditorInfo]
+     */
+    fun handleEnterKey(ic: InputConnection, editorInfo: EditorInfo) {
+        val action = editorInfo.imeOptions and EditorInfo.IME_MASK_ACTION
+        val hasNoEnterAction = (editorInfo.imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0
+
+        if (hasNoEnterAction) {
+            ic.commitText("\n", 1)
+            return
+        }
+
+        when (action) {
+            EditorInfo.IME_ACTION_NONE,
+            EditorInfo.IME_ACTION_UNSPECIFIED -> {
+                ic.commitText("\n", 1)
+            }
+            else -> {
+                val handled = ic.performEditorAction(action)
+                if (!handled) {
+                    ic.commitText("\n", 1)
+                }
+            }
+        }
+    }
 }

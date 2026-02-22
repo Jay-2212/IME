@@ -1,27 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 2026 refresh dark fallback palette. -->
-    <color name="keyboard_background">#0B1220</color>
-    <color name="accent_primary">#8CA8FF</color>
-    <color name="on_accent_primary">#0B1220</color>
-    <color name="accent_secondary">#6BA8FF</color>
-    <color name="on_accent_secondary">#081525</color>
+    <!-- Obsidian Ember semantic tokens (dark). -->
+    <color name="oe_bg_0">#09090A</color>
+    <color name="oe_bg_1">#111214</color>
+    <color name="oe_surface">#17181B</color>
+    <color name="oe_surface_2">#1E2024</color>
+    <color name="oe_outline">#2C2F36</color>
+    <color name="oe_text_primary">#F5F7FA</color>
+    <color name="oe_text_secondary">#B6BDC9</color>
+    <color name="oe_text_muted">#8C94A3</color>
+    <color name="oe_accent">#FF7A1A</color>
+    <color name="oe_accent_soft">#FF9A4D</color>
+    <color name="oe_accent_deep">#D85F00</color>
+    <color name="oe_success">#2EB875</color>
+    <color name="oe_warning">#FFB020</color>
+    <color name="oe_error">#FF5A5F</color>
 
-    <color name="text_primary">#EAF0FF</color>
-    <color name="disabled">#A2AFCC</color>
+    <!-- Pastel Pink semantic tokens (dark). -->
+    <color name="pp_bg_0">#171019</color>
+    <color name="pp_bg_1">#211824</color>
+    <color name="pp_surface">#2A1E2D</color>
+    <color name="pp_surface_2">#342438</color>
+    <color name="pp_outline">#4B374F</color>
+    <color name="pp_text_primary">#F8EEF4</color>
+    <color name="pp_text_secondary">#D8C3D0</color>
+    <color name="pp_text_muted">#B494A7</color>
+    <color name="pp_accent">#F48FC4</color>
+    <color name="pp_accent_soft">#FFB2D8</color>
+    <color name="pp_accent_deep">#D86AA5</color>
+    <color name="pp_success">#4FD09A</color>
+    <color name="pp_warning">#FFC16B</color>
+    <color name="pp_error">#FF7FA6</color>
+    <color name="pp_on_accent">#2A1321</color>
+    <color name="pp_on_error">#2A1321</color>
 
-    <color name="gradient_start">#121A2D</color>
-    <color name="gradient_end">#19243A</color>
+    <!-- Semantic on-colors used by brand actions. -->
+    <color name="on_accent_primary">@color/oe_bg_0</color>
+    <color name="on_accent_secondary">@color/oe_bg_0</color>
+    <color name="on_error">@color/oe_bg_0</color>
 
-    <color name="surface">#121B2D</color>
-    <color name="surface_variant">#1B2740</color>
-
-    <color name="error">#FF8A80</color>
-    <color name="on_error">#3D0007</color>
-    <color name="success">#5CD6A0</color>
-    <color name="warning">#FBCB6B</color>
-
-    <color name="key_background">#243552</color>
-    <color name="key_background_pressed">#3559E0</color>
-    <color name="key_text">#EAF0FF</color>
+    <!-- Backward-compatible aliases used by existing code paths. -->
+    <color name="keyboard_background">@color/oe_bg_0</color>
+    <color name="accent_primary">@color/oe_accent</color>
+    <color name="accent_secondary">@color/oe_accent_soft</color>
+    <color name="text_primary">@color/oe_text_primary</color>
+    <color name="disabled">@color/oe_text_muted</color>
+    <color name="gradient_start">@color/oe_bg_1</color>
+    <color name="gradient_end">@color/oe_surface_2</color>
+    <color name="surface">@color/oe_surface</color>
+    <color name="surface_variant">@color/oe_surface_2</color>
+    <color name="error">@color/oe_error</color>
+    <color name="success">@color/oe_success</color>
+    <color name="warning">@color/oe_warning</color>
+    <color name="key_background">@color/oe_surface_2</color>
+    <color name="key_background_pressed">@color/oe_accent</color>
+    <color name="key_text">@color/oe_text_primary</color>
 </resources>

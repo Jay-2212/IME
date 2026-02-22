@@ -228,13 +228,18 @@ class AudioRecordingManager(
         }
 
         val bufferSize = minBufferSize * BUFFER_MULTIPLIER
-        val record = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION,
-            SAMPLE_RATE_HZ,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-            bufferSize
-        )
+        val record = try {
+            AudioRecord(
+                MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                SAMPLE_RATE_HZ,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                bufferSize
+            )
+        } catch (_: SecurityException) {
+            transitionToError("Microphone permission is required.")
+            return
+        }
 
         if (record.state != AudioRecord.STATE_INITIALIZED) {
             record.release()

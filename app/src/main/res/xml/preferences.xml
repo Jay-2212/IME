@@ -40,6 +40,16 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="@string/pref_category_appearance">
+
+        <SwitchPreferenceCompat
+            android:key="use_system_colors"
+            android:title="@string/pref_use_system_colors_title"
+            android:summary="@string/pref_use_system_colors_summary"
+            android:defaultValue="false" />
+
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="@string/pref_category_privacy">
 
         <Preference

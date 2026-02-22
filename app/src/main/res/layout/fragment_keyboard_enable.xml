@@ -18,29 +18,40 @@
         android:layout_height="wrap_content"
         android:gravity="center"
         android:text="@string/keyboard_enable_headline"
-        android:textColor="@color/text_primary"
+        android:textColor="?attr/colorOnSurface"
         android:textSize="24sp"
         android:textStyle="bold"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintVertical_bias="0.1"
-        app:layout_constraintBottom_toTopOf="@id/lottie_keyboard_guide" />
+        app:layout_constraintBottom_toTopOf="@id/card_keyboard_guide" />
 
     <!-- Lottie animation placeholder for keyboard setup guide (TSD Section 2.1) -->
-    <com.airbnb.lottie.LottieAnimationView
-        android:id="@+id/lottie_keyboard_guide"
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_keyboard_guide"
         android:layout_width="0dp"
-        android:layout_height="200dp"
+        android:layout_height="220dp"
         android:layout_marginTop="16dp"
-        app:lottie_autoPlay="true"
-        app:lottie_loop="true"
-        app:lottie_rawRes="@raw/keyboard_setup_animation"
+        app:cardBackgroundColor="?attr/colorSurfaceVariant"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="0dp"
+        app:strokeColor="?attr/colorOutline"
+        app:strokeWidth="1dp"
         app:layout_constraintTop_toBottomOf="@id/tv_enable_headline"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@id/tv_enable_subtitle"
-        tools:background="@color/surface_variant" />
+        tools:background="@color/surface_variant">
+
+        <com.airbnb.lottie.LottieAnimationView
+            android:id="@+id/lottie_keyboard_guide"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:lottie_autoPlay="true"
+            app:lottie_loop="true"
+            app:lottie_rawRes="@raw/keyboard_setup_animation" />
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- Step instructions -->
     <TextView
@@ -50,9 +61,9 @@
         android:layout_marginTop="16dp"
         android:gravity="center"
         android:text="@string/keyboard_enable_subtitle"
-        android:textColor="@color/disabled"
+        android:textColor="?attr/colorOnSurfaceVariant"
         android:textSize="@dimen/text_body"
-        app:layout_constraintTop_toBottomOf="@id/lottie_keyboard_guide"
+        app:layout_constraintTop_toBottomOf="@id/card_keyboard_guide"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@id/tv_enabled_status" />
@@ -74,13 +85,13 @@
     <!-- Test text area (TSD Section 2.1 Step 3) -->
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/et_test_area"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
         android:hint="@string/test_area_hint"
-        app:boxStrokeColor="@color/accent_secondary"
-        app:hintTextColor="@color/disabled"
+        app:boxStrokeColor="?attr/colorPrimary"
+        app:hintTextColor="?attr/colorOnSurfaceVariant"
         app:layout_constraintTop_toBottomOf="@id/tv_enabled_status"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -90,7 +101,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="text"
-            android:textColor="@color/text_primary" />
+            android:textColor="?attr/colorOnSurface" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <!-- Open keyboard settings button -->

@@ -1,21 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App -->
-    <string name="app_name">GroqVoice Keyboard</string>
-    <string name="ime_name">GroqVoice</string>
+    <string name="app_name">Sensum</string>
+    <string name="ime_name">Sensum</string>
     <string name="subtype_en_US">English (US)</string>
 
     <!-- Onboarding — Step 1: Welcome (TSD Section 2.1) -->
     <string name="welcome_headline">Fast voice typing, powered by Groq AI</string>
-    <string name="welcome_subtitle">GroqVoice enables lightning-fast voice typing powered by Groq\'s Whisper transcription.</string>
+    <string name="welcome_subtitle">Sensum enables lightning-fast voice typing powered by Groq\'s Whisper transcription.</string>
+    <string name="welcome_supporting_line">One-time setup • Secure key storage • Premium voice-first design</string>
     <string name="btn_get_started">Get Started</string>
     <string name="permission_audio_rationale">Microphone access is required to record your voice for transcription.</string>
     <string name="permission_notification_rationale">Notification permission is required to show hands-free recording status.</string>
 
     <!-- Onboarding — Step 2: API Key (TSD Section 2.1) -->
-    <string name="api_key_headline">Enter your Groq API Key</string>
+    <string name="api_key_headline">Enter your free Groq API Key</string>
+    <string name="api_key_subtitle">It\'s completely free and takes just a minute. Copy and paste it below to unlock the power of Sensum.</string>
     <string name="api_key_hint">gsk_…</string>
-    <string name="api_key_help_link">Where do I find this?</string>
+    <string name="api_key_help_link">How do I get a free API key?</string>
+    <string name="api_key_steps_title">Free one-time setup (about 60 seconds)</string>
+    <string name="api_key_steps_body">1. Open console.groq.com/keys\n2. Sign in or create a free Groq account\n3. Tap \"Create API Key\"\n4. Copy the key that starts with gsk_ and paste it here</string>
+    <string name="api_key_one_time_note">You only do this once on this phone. Sensum saves it securely, so your friends and family won\'t need to repeat setup every time.</string>
     <string name="api_key_validating">Validating key…</string>
     <string name="api_key_valid">API key is valid ✓</string>
     <string name="api_key_error_format">Invalid format. Key must start with gsk_ followed by 40+ characters.</string>
@@ -24,17 +29,26 @@
     <string name="btn_validate_and_continue">Validate &amp; Continue</string>
 
     <!-- Onboarding — Step 3: Keyboard Enable (TSD Section 2.1) -->
-    <string name="keyboard_enable_headline">Enable GroqVoice Keyboard</string>
+    <string name="keyboard_enable_headline">Enable Sensum Keyboard</string>
     <string name="keyboard_enable_subtitle">Open Settings → General Management → Languages &amp; Input → On-screen keyboard.</string>
     <string name="btn_open_keyboard_settings">Open Keyboard Settings</string>
-    <string name="keyboard_enabled_status">GroqVoice is enabled ✓</string>
-    <string name="keyboard_not_enabled_status">GroqVoice is not yet enabled</string>
-    <string name="test_area_hint">Tap here and switch to GroqVoice to try it out…</string>
+    <string name="btn_continue_to_settings">Continue</string>
+    <string name="keyboard_enabled_status">Sensum is enabled ✓</string>
+    <string name="keyboard_not_enabled_status">Sensum is not yet enabled</string>
+    <string name="test_area_hint">Tap here and switch to Sensum to try it out…</string>
 
     <!-- Keyboard View (TSD Section 3.2) -->
     <string name="key_mic_description">Voice input — hold for push-to-talk, tap for hands-free</string>
     <string name="key_backspace_description">Backspace</string>
     <string name="key_space_description">Space</string>
+    <string name="key_space_label">Space</string>
+    <string name="key_enter_description">Enter</string>
+    <string name="key_enter_default">↵</string>
+    <string name="key_enter_search">Search</string>
+    <string name="key_enter_go">Go</string>
+    <string name="key_enter_send">Send</string>
+    <string name="key_enter_next">Next</string>
+    <string name="key_enter_done">Done</string>
     <string name="transcription_preview_placeholder">Tap mic to start…</string>
 
     <!-- Keyboard State Labels (TSD Section 3.2) -->
@@ -60,28 +74,46 @@
     <string name="tooltip_settings">Change API key or model</string>
 
     <!-- Settings (TSD Section 1.2) -->
-    <string name="settings_title">GroqVoice Settings</string>
+    <string name="settings_title">Sensum Settings</string>
+    <string name="settings_subtitle">Voice-first and privacy-focused</string>
     <string name="pref_category_api">Groq API</string>
     <string name="pref_api_key_title">API Key</string>
     <string name="pref_api_key_summary">Stored securely with encryption</string>
     <string name="pref_model_title">Transcription Model</string>
     <string name="pref_model_summary">Select the Whisper model variant</string>
+    <string name="pref_model_recommended_hint">Recommended: Whisper Large V3 Turbo</string>
     <string name="pref_category_recording">Recording</string>
     <string name="pref_double_tap_period_title">Double-tap space for period</string>
     <string name="pref_double_tap_period_summary">Insert \". \" when space is tapped twice quickly</string>
     <string name="pref_haptic_title">Haptic feedback</string>
     <string name="pref_haptic_summary">Vibrate on key press and state changes</string>
+    <string name="pref_category_appearance">Appearance</string>
+    <string name="pref_use_system_colors_title">Use system colors</string>
+    <string name="pref_use_system_colors_summary">Use Android dynamic color accents on supported devices (Android 12+).</string>
+    <string name="pref_use_system_colors_unavailable">Unavailable on this Android version. Requires Android 12 or newer.</string>
+    <string name="pref_use_system_colors_restart_note">Theme preference saved. Reopen app windows to fully apply.</string>
+    <string name="pref_theme_obsidian">Obsidian Ember</string>
+    <string name="pref_theme_pastel">Pastel Pink</string>
+    <string name="pref_theme_saved">Theme updated</string>
     <string name="pref_category_privacy">Privacy</string>
     <string name="pref_clear_log_title">Clear transcription log</string>
-    <string name="pref_clear_log_summary">Deletes local timestamps (no audio content stored)</string>
+    <string name="pref_clear_log_summary">Deletes local transcription history stored on this device</string>
     <string name="pref_clear_log_done">Transcription log cleared</string>
+    <string name="pref_log_summary">View and copy your processed transcription history stored locally on this device.</string>
+    <string name="pref_log_refresh">Refresh transcription log</string>
+    <string name="pref_log_copy">Copy transcription log</string>
+    <string name="pref_log_copied">Transcription log copied</string>
+    <string name="pref_log_refreshed">Transcription log refreshed</string>
+    <string name="pref_log_empty">No transcriptions logged yet.</string>
     <string name="pref_privacy_policy_title">Privacy Policy</string>
+    <string name="pref_api_key_save">Save API key</string>
+    <string name="pref_api_key_saved">Settings saved</string>
     <string name="privacy_policy_url">https://groq.com/privacy-policy/</string>
     <string name="pref_open_link_failed">Unable to open link</string>
 
     <!-- Model list labels -->
     <string-array name="groq_models">
-        <item>Whisper Large V3 Turbo (Recommended)</item>
+        <item>Whisper Large V3 Turbo</item>
         <item>Whisper Large V3</item>
         <item>Distil-Whisper Large V3 EN</item>
     </string-array>

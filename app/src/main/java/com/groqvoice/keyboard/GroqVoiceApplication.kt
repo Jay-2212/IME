@@ -1,8 +1,10 @@
 package com.groqvoice.keyboard
 
 import android.app.Application
+import android.os.Build
 import com.google.android.material.color.DynamicColors
 import com.groqvoice.keyboard.utils.FileCacheManager
+import com.groqvoice.keyboard.utils.SecurePrefs
 
 /**
  * Application entry point.
@@ -12,8 +14,11 @@ class GroqVoiceApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // Apply Material You dynamic colors to activities on Android 12+ when available.
-        DynamicColors.applyToActivitiesIfAvailable(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            SecurePrefs(this).isSystemColorsEnabled()
+        ) {
+            DynamicColors.applyToActivitiesIfAvailable(this)
+        }
         // Clean up any orphaned temp audio files from a previous crashed session (TSD 6.1)
         FileCacheManager(this).cleanOrphanedFiles()
     }

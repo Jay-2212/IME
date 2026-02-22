@@ -1,38 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dimensions — TSD Section 3.1 -->
+    <!-- Obsidian Ember tokens -->
+    <dimen name="oe_radius_sm">12dp</dimen>
+    <dimen name="oe_radius_md">18dp</dimen>
+    <dimen name="oe_radius_lg">24dp</dimen>
+    <dimen name="oe_radius_xl">32dp</dimen>
+
+    <dimen name="oe_space_1">4dp</dimen>
+    <dimen name="oe_space_2">8dp</dimen>
+    <dimen name="oe_space_3">12dp</dimen>
+    <dimen name="oe_space_4">16dp</dimen>
+    <dimen name="oe_space_5">24dp</dimen>
+    <dimen name="oe_space_6">32dp</dimen>
 
     <!-- Keyboard -->
-    <dimen name="keyboard_height">280dp</dimen>
-    <dimen name="keyboard_padding_horizontal">16dp</dimen>
-    <dimen name="keyboard_padding_vertical">20dp</dimen>
-    <dimen name="keyboard_top_corner_radius">28dp</dimen>
+    <dimen name="keyboard_height">320dp</dimen>
+    <dimen name="keyboard_padding_horizontal">@dimen/oe_space_4</dimen>
+    <dimen name="keyboard_padding_vertical">@dimen/oe_space_4</dimen>
+    <dimen name="keyboard_top_corner_radius">@dimen/oe_radius_lg</dimen>
     <dimen name="keyboard_entry_offset">14dp</dimen>
+    <dimen name="keyboard_zone_gap">@dimen/oe_space_3</dimen>
+    <dimen name="keyboard_status_corner">@dimen/oe_radius_md</dimen>
+    <dimen name="mic_zone_min_height">124dp</dimen>
 
-    <!-- Mic button -->
-    <dimen name="mic_button_diameter">112dp</dimen>
-    <dimen name="mic_icon_size">48dp</dimen>
+    <!-- Mic -->
+    <dimen name="mic_button_diameter">108dp</dimen>
+    <dimen name="mic_icon_size">44dp</dimen>
     <dimen name="mic_button_elevation">8dp</dimen>
+    <dimen name="mic_pulse_diameter">132dp</dimen>
 
-    <!-- Key corners -->
-    <dimen name="key_corner_radius">24dp</dimen>
-
-    <!-- Bottom row keys -->
-    <dimen name="key_control_width">64dp</dimen>
-    <dimen name="key_row_gap">8dp</dimen>
-    <dimen name="key_height">52dp</dimen>
+    <!-- Keys -->
+    <dimen name="key_corner_radius">@dimen/oe_radius_md</dimen>
+    <dimen name="key_control_width">56dp</dimen>
+    <dimen name="key_row_gap">@dimen/oe_space_2</dimen>
+    <dimen name="key_height">54dp</dimen>
+    <dimen name="spacebar_height">54dp</dimen>
+    <dimen name="action_rail_key_width">60dp</dimen>
+    <dimen name="action_rail_key_height">54dp</dimen>
     <dimen name="key_stroke_width">1dp</dimen>
+    <dimen name="key_icon_size">24dp</dimen>
+    <dimen name="enter_action_icon_size">28dp</dimen>
+    <dimen name="touch_target_min">48dp</dimen>
 
-    <!-- Transcription preview strip -->
-    <dimen name="transcription_preview_height">48dp</dimen>
+    <!-- Transcription / state -->
+    <dimen name="transcription_preview_height">44dp</dimen>
 
     <!-- Typography -->
     <dimen name="text_label">14sp</dimen>
     <dimen name="text_body">16sp</dimen>
     <dimen name="text_headline">24sp</dimen>
 
-    <!-- Onboarding -->
-    <dimen name="onboarding_padding">32dp</dimen>
+    <!-- Onboarding / settings -->
+    <dimen name="onboarding_padding">@dimen/oe_space_6</dimen>
     <dimen name="onboarding_button_height">56dp</dimen>
     <dimen name="onboarding_button_corner_radius">28dp</dimen>
 </resources>

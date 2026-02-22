@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <integer name="oe_motion_fast">90</integer>
+    <integer name="oe_motion_standard">180</integer>
+    <integer name="oe_motion_screen">220</integer>
+</resources>

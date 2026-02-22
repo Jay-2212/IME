@@ -1,9 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    Keyboard input view layout — TSD Section 3.2
-    Vertical stack: transcription preview → mic button → bottom row (backspace + space)
-    Height is fixed at @dimen/keyboard_height (280dp).
--->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -15,121 +10,199 @@
     android:paddingHorizontal="@dimen/keyboard_padding_horizontal"
     android:paddingVertical="@dimen/keyboard_padding_vertical">
 
-    <!-- Transcription preview strip (TSD 3.2) -->
-    <HorizontalScrollView
-        android:id="@+id/transcription_preview_container"
-        android:layout_width="match_parent"
-        android:layout_height="@dimen/transcription_preview_height"
-        android:scrollbars="none"
-        android:visibility="gone"
-        tools:visibility="visible">
-
-        <TextView
-            android:id="@+id/transcription_preview_text"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:gravity="center_vertical"
-            android:textColor="?attr/colorOnSurface"
-            android:textSize="@dimen/text_body"
-            tools:text="Transcription preview will appear here…" />
-    </HorizontalScrollView>
-
-    <!-- State label -->
-    <TextView
-        android:id="@+id/state_label"
+    <!-- Zone A: banner + preview + state -->
+    <LinearLayout
+        android:id="@+id/status_zone"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center"
-        android:textColor="?attr/colorOnSurface"
-        android:textSize="@dimen/text_label"
-        tools:text="Ready" />
+        android:orientation="horizontal">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="@dimen/oe_space_3"
+            android:paddingTop="@dimen/oe_space_1"
+            android:paddingBottom="@dimen/oe_space_1">
 
-    <!-- Mic button (circular FAB — TSD Section 3.1, 3.2) -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/btn_mic"
-        android:layout_width="@dimen/mic_button_diameter"
-        android:layout_height="@dimen/mic_button_diameter"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="8dp"
-        android:contentDescription="@string/key_mic_description"
-        app:srcCompat="@drawable/ic_mic_material"
-        app:backgroundTint="?attr/colorSecondary"
-        app:fabCustomSize="@dimen/mic_button_diameter"
-        app:elevation="@dimen/mic_button_elevation"
-        app:maxImageSize="@dimen/mic_icon_size"
-        style="@style/Widget.GroqVoiceKeyboard.MicButton" />
+            <TextView
+                android:id="@+id/banner_message"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/colorError"
+                android:gravity="center"
+                android:paddingHorizontal="@dimen/oe_space_2"
+                android:paddingVertical="@dimen/oe_space_1"
+                android:textColor="?attr/colorOnError"
+                android:textSize="12sp"
+                android:visibility="gone"
+                tools:text="Tap to configure API key"
+                tools:visibility="visible" />
 
-    <!-- Bottom row: Settings + Spacebar + Backspace (TSD Section 3.2) -->
+            <HorizontalScrollView
+                android:id="@+id/transcription_preview_container"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/transcription_preview_height"
+                android:layout_marginTop="@dimen/oe_space_1"
+                android:scrollbars="none"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <TextView
+                    android:id="@+id/transcription_preview_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center_vertical"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="@dimen/text_body"
+                    tools:text="Transcription preview will appear here…" />
+            </HorizontalScrollView>
+
+            <TextView
+                android:id="@+id/state_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/oe_space_1"
+                android:gravity="center"
+                android:textColor="?attr/colorOnSurface"
+                android:textSize="@dimen/text_label"
+                tools:text="Ready" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Zone B: hero mic -->
+    <FrameLayout
+        android:id="@+id/mic_zone"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="@dimen/keyboard_zone_gap"
+        android:layout_weight="1"
+        android:minHeight="@dimen/mic_zone_min_height"
+        android:foregroundGravity="center">
+
+        <View
+            android:id="@+id/mic_pulse_layer"
+            android:layout_width="@dimen/mic_pulse_diameter"
+            android:layout_height="@dimen/mic_pulse_diameter"
+            android:layout_gravity="center"
+            android:alpha="0"
+            android:background="@drawable/bg_mic_pulse" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btn_mic"
+            style="@style/Widget.GroqVoiceKeyboard.MicButton"
+            android:layout_width="@dimen/mic_button_diameter"
+            android:layout_height="@dimen/mic_button_diameter"
+            android:layout_gravity="center"
+            android:contentDescription="@string/key_mic_description"
+            app:backgroundTint="?attr/colorPrimary"
+            app:elevation="@dimen/mic_button_elevation"
+            app:fabCustomSize="@dimen/mic_button_diameter"
+            app:maxImageSize="@dimen/mic_icon_size"
+            app:srcCompat="@drawable/ic_mic_material" />
+    </FrameLayout>
+
+    <!-- Zone C: left utility + centered spacebar + right action rail -->
     <LinearLayout
         android:id="@+id/bottom_row"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/key_height"
-        android:layout_marginTop="16dp"
-        android:gravity="center_vertical"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/keyboard_zone_gap"
+        android:gravity="bottom"
         android:orientation="horizontal">
 
-        <!-- Settings gear shortcut -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_settings"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="@dimen/key_control_width"
-            android:layout_height="match_parent"
+            android:layout_height="@dimen/key_height"
             android:contentDescription="@string/tooltip_settings"
-            android:minWidth="0dp"
-            android:text="⚙"
-            android:textSize="18sp"
-            android:textColor="?attr/colorOnSurface"
-            app:strokeColor="@color/disabled" />
+            android:gravity="center"
+            android:insetBottom="0dp"
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:insetTop="0dp"
+            android:minHeight="@dimen/touch_target_min"
+            android:minWidth="@dimen/touch_target_min"
+            android:padding="0dp"
+            android:text=""
+            app:cornerRadius="@dimen/key_corner_radius"
+            app:icon="@drawable/ic_key_settings"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconSize="@dimen/key_icon_size" />
 
         <Space
             android:layout_width="@dimen/key_row_gap"
             android:layout_height="match_parent" />
 
-        <!-- Spacebar key -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_spacebar"
             android:layout_width="0dp"
-            android:layout_height="match_parent"
+            android:layout_height="@dimen/spacebar_height"
             android:layout_weight="1"
             android:contentDescription="@string/key_space_description"
+            android:minHeight="@dimen/touch_target_min"
             android:minWidth="0dp"
-            android:text="@string/app_name"
-            android:textColor="?attr/colorOnSecondary"
-            android:textSize="10sp"
-            app:backgroundTint="?attr/colorSecondary"
+            android:text="@string/key_space_label"
+            android:textAllCaps="false"
+            android:textSize="13sp"
             app:cornerRadius="@dimen/key_corner_radius" />
 
         <Space
             android:layout_width="@dimen/key_row_gap"
             android:layout_height="match_parent" />
 
-        <!-- Backspace key -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_backspace"
-            android:layout_width="@dimen/key_control_width"
-            android:layout_height="match_parent"
-            android:contentDescription="@string/key_backspace_description"
-            android:minWidth="0dp"
-            android:text="⌫"
-            android:textSize="18sp"
-            android:textColor="?attr/colorOnSecondary"
-            app:backgroundTint="?attr/colorSecondary"
-            app:cornerRadius="@dimen/key_corner_radius" />
+        <LinearLayout
+            android:id="@+id/action_rail"
+            android:layout_width="@dimen/action_rail_key_width"
+            android:layout_height="wrap_content"
+            android:gravity="bottom"
+            android:orientation="vertical">
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_enter"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/action_rail_key_height"
+                android:contentDescription="@string/key_enter_description"
+                android:gravity="center"
+                android:insetBottom="0dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:insetTop="0dp"
+                android:minHeight="@dimen/touch_target_min"
+                android:minWidth="@dimen/touch_target_min"
+                android:padding="0dp"
+                android:text="@string/key_enter_default"
+                android:textSize="18sp"
+                app:cornerRadius="@dimen/key_corner_radius"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconSize="@dimen/key_icon_size" />
+
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/key_row_gap" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_backspace"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/action_rail_key_height"
+                android:contentDescription="@string/key_backspace_description"
+                android:gravity="center"
+                android:insetBottom="0dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:insetTop="0dp"
+                android:minHeight="@dimen/touch_target_min"
+                android:minWidth="@dimen/touch_target_min"
+                android:padding="0dp"
+                android:text=""
+                app:cornerRadius="@dimen/key_corner_radius"
+                app:icon="@drawable/ic_key_backspace"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconSize="@dimen/key_icon_size" />
+        </LinearLayout>
     </LinearLayout>
-
-    <!-- Banner overlay for contextual messages (TSD Section 2.2) -->
-    <TextView
-        android:id="@+id/banner_message"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/error"
-        android:gravity="center"
-        android:padding="6dp"
-        android:textColor="@color/on_error"
-        android:textSize="12sp"
-        android:visibility="gone"
-        tools:text="Tap to configure API key"
-        tools:visibility="visible" />
 
 </LinearLayout>

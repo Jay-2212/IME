@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Onboarding Step 1 — Welcome & Permissions (TSD Section 2.1 Step 1).
-    Full-screen gradient background (Deep Purple → Blue).
+    Premium tonal background is provided by activity-level Obsidian Ember gradient.
 -->
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -11,18 +11,29 @@
     android:layout_height="match_parent"
     android:padding="@dimen/onboarding_padding">
 
-    <!-- App logo / icon placeholder -->
-    <ImageView
-        android:id="@+id/img_logo"
-        android:layout_width="96dp"
-        android:layout_height="96dp"
-        android:contentDescription="@string/app_name"
-        android:src="@android:drawable/ic_btn_speak_now"
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_logo"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        app:cardBackgroundColor="?attr/colorSurfaceVariant"
+        app:cardCornerRadius="32dp"
+        app:cardElevation="0dp"
+        app:strokeColor="?attr/colorOutline"
+        app:strokeWidth="1dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintVertical_bias="0.25"
-        app:layout_constraintBottom_toTopOf="@id/tv_headline" />
+        app:layout_constraintVertical_bias="0.2"
+        app:layout_constraintBottom_toTopOf="@id/tv_headline">
+
+        <ImageView
+            android:id="@+id/img_logo"
+            android:layout_width="88dp"
+            android:layout_height="88dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/app_name"
+            android:src="@mipmap/ic_launcher" />
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- Headline -->
     <TextView
@@ -31,10 +42,10 @@
         android:layout_height="wrap_content"
         android:gravity="center"
         android:text="@string/welcome_headline"
-        android:textColor="@color/text_primary"
-        android:textSize="28sp"
+        android:textColor="?attr/colorOnSurface"
+        android:textSize="30sp"
         android:textStyle="bold"
-        app:layout_constraintTop_toBottomOf="@id/img_logo"
+        app:layout_constraintTop_toBottomOf="@id/card_logo"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@id/tv_subtitle" />
@@ -47,9 +58,23 @@
         android:layout_marginTop="16dp"
         android:gravity="center"
         android:text="@string/welcome_subtitle"
-        android:textColor="@color/disabled"
-        android:textSize="@dimen/text_body"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textSize="17sp"
         app:layout_constraintTop_toBottomOf="@id/tv_headline"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/tv_supporting_line" />
+
+    <TextView
+        android:id="@+id/tv_supporting_line"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:text="@string/welcome_supporting_line"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textSize="13sp"
+        app:layout_constraintTop_toBottomOf="@id/tv_subtitle"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@id/btn_get_started" />

@@ -30,6 +30,7 @@ class KeyboardEnableFragment : Fragment() {
 
     private var _binding: FragmentKeyboardEnableBinding? = null
     private val binding get() = _binding!!
+    private var isKeyboardEnabled = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -44,7 +45,11 @@ class KeyboardEnableFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         binding.btnOpenKeyboardSettings.setOnClickListener {
-            startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+            if (isKeyboardEnabled) {
+                (activity as? WelcomeActivity)?.goToNextStep()
+            } else {
+                startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+            }
         }
 
         // Poll keyboard enabled state while fragment is at least STARTED
@@ -53,11 +58,6 @@ class KeyboardEnableFragment : Fragment() {
                 while (true) {
                     val enabled = isGroqVoiceEnabled()
                     updateEnabledStatus(enabled)
-                    if (enabled) {
-                        delay(1_000) // Give user time to see the success state
-                        (activity as? WelcomeActivity)?.goToNextStep()
-                        break
-                    }
                     delay(1_000)
                 }
             }
@@ -72,12 +72,15 @@ class KeyboardEnableFragment : Fragment() {
     }
 
     private fun updateEnabledStatus(enabled: Boolean) {
+        isKeyboardEnabled = enabled
         if (enabled) {
             binding.tvEnabledStatus.text = getString(R.string.keyboard_enabled_status)
             binding.tvEnabledStatus.setTextColor(requireContext().getColor(R.color.success))
+            binding.btnOpenKeyboardSettings.text = getString(R.string.btn_continue_to_settings)
         } else {
             binding.tvEnabledStatus.text = getString(R.string.keyboard_not_enabled_status)
             binding.tvEnabledStatus.setTextColor(requireContext().getColor(R.color.disabled))
+            binding.btnOpenKeyboardSettings.text = getString(R.string.btn_open_keyboard_settings)
         }
     }
 

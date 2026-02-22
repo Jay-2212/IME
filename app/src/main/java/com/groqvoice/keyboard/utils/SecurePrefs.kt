@@ -21,6 +21,11 @@ class SecurePrefs(context: Context) {
         const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
         const val KEY_DOUBLE_TAP_PERIOD = "double_tap_period"
         const val KEY_HAPTIC_FEEDBACK = "haptic_feedback"
+        const val KEY_USE_SYSTEM_COLORS = "use_system_colors"
+        const val KEY_BRAND_THEME = "brand_theme"
+
+        const val THEME_OBSIDIAN_EMBER = "obsidian_ember"
+        const val THEME_PASTEL_PINK = "pastel_pink"
     }
 
     private val prefs by lazy {
@@ -79,6 +84,22 @@ class SecurePrefs(context: Context) {
     /** Returns whether haptic feedback is enabled. */
     fun isHapticFeedbackEnabled(): Boolean =
         prefs.getBoolean(KEY_HAPTIC_FEEDBACK, true)
+
+    /** Persists whether dynamic system colors should be used when supported (API 31+). */
+    fun setSystemColorsEnabled(enabled: Boolean) =
+        prefs.edit().putBoolean(KEY_USE_SYSTEM_COLORS, enabled).apply()
+
+    /** Returns whether dynamic system colors are enabled by the user. */
+    fun isSystemColorsEnabled(): Boolean =
+        prefs.getBoolean(KEY_USE_SYSTEM_COLORS, false)
+
+    /** Persists the active brand theme used when system colors are disabled. */
+    fun setBrandTheme(theme: String) =
+        prefs.edit().putString(KEY_BRAND_THEME, theme).apply()
+
+    /** Returns the selected brand theme. */
+    fun getBrandTheme(): String =
+        prefs.getString(KEY_BRAND_THEME, THEME_OBSIDIAN_EMBER) ?: THEME_OBSIDIAN_EMBER
 
     /**
      * Clears the API key from memory after wiping the byte array.
