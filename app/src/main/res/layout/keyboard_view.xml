@@ -69,52 +69,21 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Zone B: hero mic -->
+    <!-- Zone B: middle row containing settings chip, hero mic, and enter/action key -->
     <FrameLayout
         android:id="@+id/mic_zone"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="@dimen/keyboard_zone_gap"
         android:layout_weight="1"
-        android:minHeight="@dimen/mic_zone_min_height"
-        android:foregroundGravity="center">
-
-        <View
-            android:id="@+id/mic_pulse_layer"
-            android:layout_width="@dimen/mic_pulse_diameter"
-            android:layout_height="@dimen/mic_pulse_diameter"
-            android:layout_gravity="center"
-            android:alpha="0"
-            android:background="@drawable/bg_mic_pulse" />
-
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/btn_mic"
-            style="@style/Widget.GroqVoiceKeyboard.MicButton"
-            android:layout_width="@dimen/mic_button_diameter"
-            android:layout_height="@dimen/mic_button_diameter"
-            android:layout_gravity="center"
-            android:contentDescription="@string/key_mic_description"
-            app:backgroundTint="?attr/colorPrimary"
-            app:elevation="@dimen/mic_button_elevation"
-            app:fabCustomSize="@dimen/mic_button_diameter"
-            app:maxImageSize="@dimen/mic_icon_size"
-            app:srcCompat="@drawable/ic_mic_material" />
-    </FrameLayout>
-
-    <!-- Zone C: left utility + centered spacebar + right action rail -->
-    <LinearLayout
-        android:id="@+id/bottom_row"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/keyboard_zone_gap"
-        android:gravity="bottom"
-        android:orientation="horizontal">
+        android:minHeight="@dimen/mic_zone_min_height">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_settings"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="@dimen/key_control_width"
+            android:layout_width="@dimen/action_rail_key_width"
             android:layout_height="@dimen/key_height"
+            android:layout_gravity="center_vertical|start"
             android:contentDescription="@string/tooltip_settings"
             android:gravity="center"
             android:insetBottom="0dp"
@@ -131,9 +100,57 @@
             app:iconPadding="0dp"
             app:iconSize="@dimen/key_icon_size" />
 
-        <Space
-            android:layout_width="@dimen/key_row_gap"
-            android:layout_height="match_parent" />
+        <View
+            android:id="@+id/mic_pulse_layer"
+            android:layout_width="@dimen/mic_pulse_diameter"
+            android:layout_height="@dimen/mic_pulse_diameter"
+            android:layout_gravity="center"
+            android:alpha="0"
+            android:background="@drawable/bg_mic_pulse" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btn_mic"
+            style="@style/Widget.GroqVoiceKeyboard.MicButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:contentDescription="@string/key_mic_description"
+            app:backgroundTint="?attr/colorPrimary"
+            app:elevation="@dimen/mic_button_elevation"
+            app:fabCustomSize="@dimen/mic_button_diameter"
+            app:maxImageSize="@dimen/mic_icon_size"
+            app:srcCompat="@drawable/ic_mic_material" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_enter"
+            android:layout_width="@dimen/action_rail_key_width"
+            android:layout_height="@dimen/key_height"
+            android:layout_gravity="center_vertical|end"
+            android:contentDescription="@string/key_enter_description"
+            android:gravity="center"
+            android:insetBottom="0dp"
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:insetTop="0dp"
+            android:minHeight="@dimen/touch_target_min"
+            android:minWidth="@dimen/touch_target_min"
+            android:padding="0dp"
+            android:text="@string/key_enter_default"
+            android:textSize="18sp"
+            app:cornerRadius="@dimen/key_corner_radius"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconSize="@dimen/key_icon_size" />
+    </FrameLayout>
+
+    <!-- Zone C: bottom row containing spacebar and backspace -->
+    <LinearLayout
+        android:id="@+id/bottom_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/keyboard_zone_gap"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_spacebar"
@@ -152,57 +169,25 @@
             android:layout_width="@dimen/key_row_gap"
             android:layout_height="match_parent" />
 
-        <LinearLayout
-            android:id="@+id/action_rail"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_backspace"
             android:layout_width="@dimen/action_rail_key_width"
-            android:layout_height="wrap_content"
-            android:gravity="bottom"
-            android:orientation="vertical">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_enter"
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/action_rail_key_height"
-                android:contentDescription="@string/key_enter_description"
-                android:gravity="center"
-                android:insetBottom="0dp"
-                android:insetLeft="0dp"
-                android:insetRight="0dp"
-                android:insetTop="0dp"
-                android:minHeight="@dimen/touch_target_min"
-                android:minWidth="@dimen/touch_target_min"
-                android:padding="0dp"
-                android:text="@string/key_enter_default"
-                android:textSize="18sp"
-                app:cornerRadius="@dimen/key_corner_radius"
-                app:iconGravity="textStart"
-                app:iconPadding="0dp"
-                app:iconSize="@dimen/key_icon_size" />
-
-            <Space
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/key_row_gap" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_backspace"
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/action_rail_key_height"
-                android:contentDescription="@string/key_backspace_description"
-                android:gravity="center"
-                android:insetBottom="0dp"
-                android:insetLeft="0dp"
-                android:insetRight="0dp"
-                android:insetTop="0dp"
-                android:minHeight="@dimen/touch_target_min"
-                android:minWidth="@dimen/touch_target_min"
-                android:padding="0dp"
-                android:text=""
-                app:cornerRadius="@dimen/key_corner_radius"
-                app:icon="@drawable/ic_key_backspace"
-                app:iconGravity="textStart"
-                app:iconPadding="0dp"
-                app:iconSize="@dimen/key_icon_size" />
-        </LinearLayout>
+            android:layout_height="@dimen/key_height"
+            android:contentDescription="@string/key_backspace_description"
+            android:gravity="center"
+            android:insetBottom="0dp"
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:insetTop="0dp"
+            android:minHeight="@dimen/touch_target_min"
+            android:minWidth="@dimen/touch_target_min"
+            android:padding="0dp"
+            android:text=""
+            app:cornerRadius="@dimen/key_corner_radius"
+            app:icon="@drawable/ic_key_backspace"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconSize="@dimen/key_icon_size" />
     </LinearLayout>
 
 </LinearLayout>

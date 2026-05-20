@@ -128,8 +128,11 @@ object AudioEncoder {
         var inputDone = false
         var outputDone = false
         val bufferInfo = MediaCodec.BufferInfo()
+        var noProgressCount = 0
 
         while (!outputDone) {
+            var madeProgress = false
+
             if (!inputDone) {
                 val inputBufferIndex = codec.dequeueInputBuffer(CODEC_TIMEOUT_US)
                 if (inputBufferIndex >= 0) {
@@ -158,11 +161,19 @@ object AudioEncoder {
                         )
                         inputOffset += bytesToWrite
                     }
+                    madeProgress = true
                 }
             }
 
             var outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, CODEC_TIMEOUT_US)
+            if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED ||
+                outputBufferIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED
+            ) {
+                madeProgress = true
+            }
+
             while (outputBufferIndex >= 0) {
+                madeProgress = true
                 val encodedBuffer = codec.getOutputBuffer(outputBufferIndex)
                 if (bufferInfo.size > 0 && encodedBuffer != null) {
                     encodedBuffer.position(bufferInfo.offset)
@@ -175,6 +186,15 @@ object AudioEncoder {
                 outputDone = (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0
                 codec.releaseOutputBuffer(outputBufferIndex, false)
                 outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 0)
+            }
+
+            if (madeProgress) {
+                noProgressCount = 0
+            } else {
+                noProgressCount++
+                if (noProgressCount > 1000) {
+                    throw IllegalStateException("FLAC encoder hang detected: no progress for 1000 iterations")
+                }
             }
 
             if (outputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER && inputDone) {

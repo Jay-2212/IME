@@ -150,6 +150,11 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
         updateEnterKeyStyle(attribute)
     }
 
+    override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
+        super.onStartInputView(info, restarting)
+        audioManager.completeProcessing()
+    }
+
     private fun updateEnterKeyStyle(attribute: EditorInfo) {
         val action = attribute.imeOptions and EditorInfo.IME_MASK_ACTION
         val hasNoEnterAction = (attribute.imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0
