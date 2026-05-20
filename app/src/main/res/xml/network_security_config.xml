@@ -2,7 +2,6 @@
 <!--
     Network security configuration.
     Enforces HTTPS for all connections in both debug and release.
-    Certificate pinning for api.groq.com can be added here (Section 7.1).
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">
@@ -10,11 +9,4 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
-    <!-- Certificate pinning for api.groq.com (TSD Section 7.1) -->
-    <domain-config>
-        <domain includeSubdomains="false">api.groq.com</domain>
-        <pin-set>
-            <pin digest="SHA-256">d4+HJjLne/sZOYjO+ObMgq4Wzv3hKzBFi7hrv+Gqmt0=</pin>
-        </pin-set>
-    </domain-config>
 </network-security-config>
