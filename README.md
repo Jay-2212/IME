@@ -1,81 +1,121 @@
 # Sensum Voice Keyboard
 
-**Sensum** is a high-performance, private, and beautifully designed custom Android Input Method Editor (IME) keyboard that enables instant voice-to-text transcription powered by the Groq Cloud API (Whisper Large V3 Turbo). 
+Sensum is an Android Input Method Editor (IME) with push-to-talk voice typing.
+It records 16 kHz mono audio on the device, encodes it as FLAC with a WAV
+fallback, sends the recording to the Groq transcription API, and inserts the
+returned text into the active input field.
 
-Sensum was designed to combine the speed of Groq's low-latency transcription engine with a premium, accessible user interface and rock-solid offline/online state transitions.
+**Status:** the repository currently publishes a v1.0.0 debug APK. It is a
+personal project and is not presented as a production-signed or store-approved
+keyboard.
 
----
+## Download
 
-## 🌟 Key Features
+- [Sensum v1.0.0 release](https://github.com/Jay-2212/Sensum/releases/tag/v1.0.0)
+- [Download the v1.0.0 debug APK](https://github.com/Jay-2212/Sensum/releases/download/v1.0.0/sensum-debug.apk)
 
-*   **⚡ Ultra-Fast Transcription**: Uses Groq's hardware-accelerated Whisper-Large-V3-Turbo API for near-instant speech-to-text results.
-*   **🎙️ Smart Recording Modes**:
-    *   **Hands-Free Mode**: Tap to start recording, speak continuously, and tap again to stop and automatically inject the transcribed text.
-    *   **Fallback Resilience**: High-fidelity hardware FLAC compression with an automated, safe fallback to WAV format in case of encoder bottlenecks.
-*   **🎨 Premium M3 Design**: Balanced layout featuring a center-anchored voice command button, a modern utility bar (Settings, Enter, Backspace, Spacebar), and clean Material Design 3 elements.
-*   **🔒 Privacy-First**: 
-    *   All API keys are securely encrypted on-device.
-    *   Voice data is processed directly via safe HTTPS endpoints, with zero external tracking or data collection.
+Android may require you to allow installation from the browser or file manager.
+After installation, enable Sensum in Android's keyboard settings, select it as
+the active keyboard, and add a Groq API key in the app settings.
 
----
+## Features
 
-## 📲 How to Install & Use (For Everyone)
+- Push-to-talk recording from a custom Android keyboard.
+- Hardware `MediaCodec` FLAC encoding with WAV fallback.
+- Groq Whisper transcription through Retrofit and OkHttp.
+- Material 3 onboarding and settings screens.
+- Password-field protection that disables voice typing in password editors.
+- Network-state handling, request throttling, retry queue support, and local
+  transcription history.
+- Encrypted on-device storage for the Groq API key using AndroidX
+  `EncryptedSharedPreferences`.
+- Light and dark/pastel visual themes.
 
-No technical knowledge is required to install and use Sensum.
+## Privacy and data flow
 
-### Step 1: Download the App
-Download the pre-compiled application file (APK) directly from the GitHub Releases page:
-👉 **[Download Sensum v1.0.0 APK](https://github.com/Jay-2212/IME/releases/download/v1.0.0/sensum-debug.apk)**
+Voice audio is sent over HTTPS directly to
+`https://api.groq.com/openai/v1/audio/transcriptions`. The app does not
+transcribe audio fully offline. Groq's processing, retention, and account terms
+apply to those requests; this repository does not guarantee that voice data is
+private, deleted immediately, or excluded from provider logging.
 
-### Step 2: Install on Android
-1.  Locate the downloaded `.apk` file in your device's Downloads folder.
-2.  Tap on the file. If prompted by Android, allow installation from "Unknown Sources" or your web browser.
-3.  Click **Install**.
+The app stores the Groq API key in Android encrypted preferences. Temporary
+audio is held in the app's private storage and the source attempts best-effort
+cleanup after use. The app also keeps local transcription/audit history until
+the user clears it. These local protections do not change what the Groq API can
+receive or retain.
 
-### Step 3: Configure the Keyboard
-1.  Open the **Sensum** app from your launcher.
-2.  Enter your **Groq API Key** (you can generate one for free on the [Groq Console](https://console.groq.com/keys)).
-3.  Follow the on-screen onboarding steps to:
-    *   Enable the keyboard in your device's **Languages & Input** settings.
-    *   Select **Sensum** as your default keyboard.
-4.  Open any chat app, bring up the keyboard, tap the central mic icon, and start talking!
+As an Android keyboard, Sensum operates in text fields selected by the user.
+Review Android's IME warning and the app's permissions before using it for
+sensitive conversations or credentials. The source contains no project-wide
+claim of “zero external tracking or data collection.”
 
----
+## Permissions
 
-## 🛠️ How to Build from Source (For Developers)
+The manifest requests:
 
-If you would like to build and compile the application yourself, follow these steps.
+- `RECORD_AUDIO` for recording;
+- `INTERNET` and network state for Groq requests;
+- `VIBRATE` and `POST_NOTIFICATIONS` for keyboard feedback and notifications;
+- `WAKE_LOCK` for hands-free recording; and
+- `READ_PHONE_STATE` to stop recording around phone calls.
 
-### Prerequisites
-*   **Java Development Kit (JDK)**: Version 17
-*   **Android SDK**: Command-line tools or Android Studio (Koala or newer recommended)
-*   **Gradle**: Configured wrapper included in project
+The IME service also uses Android's protected `BIND_INPUT_METHOD` permission.
+Grant only the permissions and keyboard access you understand.
 
-### Building the APK
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Jay-2212/IME.git
-   cd IME
-   ```
-2. Build the debug version of the app using Gradle:
-   ```bash
-   ./gradlew assembleDebug
-   ```
-3. The generated installer will be located at:
-   `app/build/outputs/apk/debug/app-debug.apk`
+## Build from source
 
-### Installing via USB Debugging
-If you have an Android device connected to your computer with USB Debugging enabled:
+### Requirements
+
+- JDK 17;
+- Android SDK with API 35 available; and
+- Android Studio or the included Gradle 8.6 wrapper.
+
+The project supports Android API 26 and newer at runtime (`minSdk 26`) and
+targets API 35. Java and Kotlin source compatibility is 11; the Android build
+itself should be run with the JDK version required by the Android Gradle Plugin.
+
+### Debug build
+
+```bash
+git clone https://github.com/Jay-2212/Sensum.git
+cd Sensum
+./gradlew test
+./gradlew assembleDebug
+```
+
+The debug APK is written to
+`app/build/outputs/apk/debug/app-debug.apk`. Install it on a connected device
+with:
+
 ```bash
 ./gradlew installDebug
 ```
 
----
+### Release signing
 
-## ⚙️ Technical Architecture
+Release signing is optional and reads `keystore.properties` when that file
+exists. Start from `keystore.properties.example`; never commit a real keystore,
+password, API key, or local path. The checked-in release APK is a debug build,
+not evidence of a verified production signing pipeline.
 
-Sensum is structured as a native Android Service, ensuring deep OS-level integration.
+## API key handling
 
-*   **IME Layer**: `VoiceInputMethodService` manages the lifecycle of the system keyboard, handling touch inputs, enter-key style updates based on context (Search, Send, Go), and editor field states (automatically disabling voice typing on password fields for security).
-*   **Audio Pipeline**: Captures 16kHz mono PCM audio via `AudioRecord`, streaming it directly into a highly optimized hardware `MediaCodec` FLAC encoder.
-*   **Network Stack**: Leverages **Retrofit 2** and **OkHttp 3** for low-overhead HTTP calls, with intelligent network connectivity listeners that handle connection transitions cleanly.
+Enter the key in the app's onboarding/settings flow. Do not put a real key in
+`.env`, `local.properties`, `keystore.properties`, source, screenshots, or issue
+reports. The repository includes examples only; its Gradle build does not
+silently turn `.env.example` into a runtime credential.
+
+## Licence status
+
+No root open-source licence was present in the repository at audit time. This
+README does not assert a project-wide licence. Before adding a permissive
+licence, confirm Jay's ownership of the original source and the included app
+artwork/branding, then document third-party dependency and asset terms
+separately.
+
+## Contributing
+
+Issues and pull requests are welcome for reproducible Android compatibility,
+audio, IME, accessibility, and documentation problems. Redact API keys, audio,
+transcription text, device identifiers, and personal logs from reports.
