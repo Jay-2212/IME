@@ -100,7 +100,10 @@ class GroqRepository(
         .apply {
             if (isDebug) {
                 addInterceptor(HttpLoggingInterceptor().apply {
-                    // Sensitive payloads/keys must never be logged.
+                    // Sensitive payloads/keys must never be logged. HttpLoggingInterceptor does
+                    // NOT redact headers by default, so without this the Authorization header
+                    // injected by ApiKeyInterceptor would be written to Logcat verbatim.
+                    redactHeader("Authorization")
                     level = HttpLoggingInterceptor.Level.HEADERS
                 })
             }
@@ -214,6 +217,10 @@ class GroqRepository(
                     return TranscriptionResult.Failure(
                         message = "Network error: ${io.message ?: "Unable to reach Groq."}"
                     )
+                } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                    // Caller cancelled the request (e.g. the IME switched fields); never swallow
+                    // this into a Failure result, or the caller's cancellation checkpoint is lost.
+                    throw cancellation
                 } catch (exception: Exception) {
                     return if (exception is JsonDataException) {
                         TranscriptionResult.Failure(
@@ -310,7 +317,9 @@ class GroqRepository(
             )
 
             else -> TranscriptionResult.Failure(
-                message = errorMessage ?: "Unexpected error ($code).",
+                // errorMessage may contain raw provider response text; never surface it to the
+                // user, only use it internally for classification (see isQuotaExceeded above).
+                message = "Unexpected error ($code).",
                 httpCode = code
             )
         }

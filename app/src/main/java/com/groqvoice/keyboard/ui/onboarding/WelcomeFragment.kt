@@ -11,8 +11,8 @@ import com.groqvoice.keyboard.utils.PermissionManager
 /**
  * Onboarding Step 1 — Welcome & Permissions.
  *
- * Displays the app value proposition and requests RECORD_AUDIO + POST_NOTIFICATIONS
- * when the user taps "Get Started".
+ * Displays the app value proposition and requests RECORD_AUDIO when the user taps
+ * "Get Started".
  *
  * TSD Section 2.1 Step 1.
  */
@@ -41,7 +41,7 @@ class WelcomeFragment : Fragment() {
                 // Permission already granted — advance to next step
                 (activity as? WelcomeActivity)?.goToNextStep()
             } else {
-                permissionManager.requestAllPermissions(requireActivity())
+                permissionManager.requestAudioPermission(requireActivity())
             }
         }
     }
@@ -52,7 +52,7 @@ class WelcomeFragment : Fragment() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PermissionManager.REQUEST_CODE_ALL) {
+        if (requestCode == PermissionManager.REQUEST_CODE_AUDIO) {
             if (permissionManager.hasAudioPermission()) {
                 (activity as? WelcomeActivity)?.goToNextStep()
             }

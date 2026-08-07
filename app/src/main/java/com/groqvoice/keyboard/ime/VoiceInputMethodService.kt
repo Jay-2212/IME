@@ -33,13 +33,17 @@ import com.groqvoice.keyboard.model.TranscriptionResult
 import com.groqvoice.keyboard.utils.AuditLogger
 import com.groqvoice.keyboard.utils.FileCacheManager
 import com.groqvoice.keyboard.utils.SecurePrefs
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Android IME service that orchestrates touch input, recording, and transcription delivery.
@@ -87,6 +91,14 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
     private var isPasswordField = false
     private var isIncognitoMode = false
     private var lastHapticStateKey: String? = null
+
+    /**
+     * Identifies which editor a recording/transcription belongs to. Incremented whenever the
+     * IME connects to a genuinely different editor (not a same-field restart), so a transcription
+     * that completes after the user has moved to another field is never committed there.
+     */
+    private val inputSessionId = AtomicInteger(0)
+    private var transcriptionJob: Job? = null
 
     companion object {
         private const val BACKSPACE_HOLD_TRIGGER_MS = 350L
@@ -137,6 +149,12 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
 
     override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
+        if (!restarting) {
+            // A genuinely new editor (not the same field reconnecting, e.g. after rotation) —
+            // any transcription still in flight for the previous editor must not land here.
+            inputSessionId.incrementAndGet()
+            transcriptionJob?.cancel()
+        }
         isPasswordField = InputConnectionHelper.isPasswordField(attribute)
         isIncognitoMode = InputConnectionHelper.isIncognitoMode(attribute)
 
@@ -202,6 +220,18 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
         super.onFinishInputView(finishingInput)
     }
 
+    override fun onFinishInput() {
+        // The editing session has ended (field lost focus, app switched away, etc.). Invalidate
+        // the session so a still-in-flight result is never committed into whatever becomes
+        // focused next. Deliberately NOT cancelling transcriptionJob here: this callback also
+        // fires on the ordinary "user tapped Send and the keyboard hides" path, and cancelling
+        // would discard an otherwise-successful transcription instead of just declining to
+        // commit it. onStartInput(restarting = false) and onDestroy() still cancel outright,
+        // since those cases have nowhere valid for the result to go.
+        inputSessionId.incrementAndGet()
+        super.onFinishInput()
+    }
+
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         audioManager.onTrimMemory(level)
@@ -214,6 +244,7 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
     }
 
     override fun onDestroy() {
+        transcriptionJob?.cancel()
         audioManager.release()
         serviceScope.cancel()
         unregisterAudioRoutingReceiver()
@@ -352,55 +383,83 @@ class VoiceInputMethodService : android.inputmethodservice.InputMethodService() 
             .launchIn(serviceScope)
 
         audioManager.onRecordingComplete = { audioFile ->
-            serviceScope.launch(Dispatchers.IO) {
+            // Capture which editor this recording belongs to. If the user has moved to a
+            // different field by the time the network call finishes, the result is dropped
+            // instead of being committed into whatever is now focused.
+            val capturedSessionId = inputSessionId.get()
+
+            transcriptionJob = serviceScope.launch(Dispatchers.IO) {
                 try {
                     val result = groqRepository.transcribe(
                         audioFile = audioFile,
                         model = securePrefs.getModel()
                     )
 
-                    serviceScope.launch(Dispatchers.Main) {
+                    withContext(Dispatchers.Main) {
+                        val isStale = inputSessionId.get() != capturedSessionId
                         val ic = currentInputConnection
                         when (result) {
                             is TranscriptionResult.Success -> {
-                                ic?.let { InputConnectionHelper.commitTranscription(it, result.text) }
-                                if (result.isPartial) {
-                                    keyboardView?.showBanner(
-                                        result.warning ?: getString(R.string.banner_partial_transcription)
-                                    )
-                                } else {
-                                    keyboardView?.hideBanner()
-                                    keyboardView?.playSuccessAnimation()
+                                if (!isStale) {
+                                    ic?.let { InputConnectionHelper.commitTranscription(it, result.text) }
+                                    if (result.isPartial) {
+                                        keyboardView?.showBanner(
+                                            result.warning ?: getString(R.string.banner_partial_transcription)
+                                        )
+                                    } else {
+                                        keyboardView?.hideBanner()
+                                        keyboardView?.playSuccessAnimation()
+                                    }
+                                    auditLogger.logTranscription(result.text)
                                 }
-                                auditLogger.logTranscription(result.text)
                                 audioManager.completeProcessing()
                             }
 
                             is TranscriptionResult.Queued -> {
-                                ic?.let { InputConnectionHelper.clearComposing(it) }
-                                keyboardView?.showBanner(getString(R.string.banner_no_network))
+                                if (!isStale) {
+                                    ic?.let { InputConnectionHelper.clearComposing(it) }
+                                    keyboardView?.showBanner(getString(R.string.banner_no_network))
+                                }
                                 audioManager.completeProcessing()
                             }
 
                             is TranscriptionResult.Failure -> {
-                                ic?.let { InputConnectionHelper.clearComposing(it) }
                                 if (result.httpCode == 401) {
+                                    // Always clear an invalid key and prompt re-onboarding,
+                                    // regardless of which field triggered the request.
                                     securePrefs.clearApiKey()
                                     openOnboarding()
-                                    keyboardView?.showBanner(getString(R.string.banner_no_api_key))
+                                    if (!isStale) keyboardView?.showBanner(getString(R.string.banner_no_api_key))
                                     audioManager.completeProcessing()
-                                } else if (result.isQuotaExceeded) {
-                                    showTransientError(getString(R.string.banner_quota_exceeded))
+                                } else if (isStale) {
+                                    audioManager.completeProcessing()
                                 } else {
-                                    showTransientError(result.message)
+                                    ic?.let { InputConnectionHelper.clearComposing(it) }
+                                    if (result.isQuotaExceeded) {
+                                        showTransientError(getString(R.string.banner_quota_exceeded))
+                                    } else {
+                                        showTransientError(result.message)
+                                    }
                                 }
                             }
                         }
                     }
+                } catch (_: CancellationException) {
+                    // Field/session changed while the request was in flight; GroqRepository's
+                    // finally block still cleans up the temp file. Reset state (NonCancellable —
+                    // this job is already cancelled, a plain withContext would no-op here) so a
+                    // recording in the new field isn't blocked behind a stuck Processing state.
+                    withContext(kotlinx.coroutines.NonCancellable + Dispatchers.Main) {
+                        audioManager.completeProcessing()
+                    }
                 } catch (_: Exception) {
-                    serviceScope.launch(Dispatchers.Main) {
-                        currentInputConnection?.let { InputConnectionHelper.clearComposing(it) }
-                        showTransientError("Transcription failed unexpectedly.")
+                    withContext(Dispatchers.Main) {
+                        if (inputSessionId.get() == capturedSessionId) {
+                            currentInputConnection?.let { InputConnectionHelper.clearComposing(it) }
+                            showTransientError("Transcription failed unexpectedly.")
+                        } else {
+                            audioManager.completeProcessing()
+                        }
                     }
                 }
             }

@@ -11,7 +11,6 @@
     <string name="welcome_supporting_line">One-time setup • Secure key storage • Premium voice-first design</string>
     <string name="btn_get_started">Get Started</string>
     <string name="permission_audio_rationale">Microphone access is required to record your voice for transcription.</string>
-    <string name="permission_notification_rationale">Notification permission is required to show hands-free recording status.</string>
 
     <!-- Onboarding — Step 2: API Key (TSD Section 2.1) -->
     <string name="api_key_headline">Enter your free Groq API Key</string>

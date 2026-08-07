@@ -33,12 +33,22 @@ class TranscriptionRetryWorker(
         const val KEY_RESULT_WARNING = "result_warning"
         const val KEY_RESULT_IS_PARTIAL = "result_is_partial"
         const val KEY_RESULT_ERROR = "result_error"
+
+        /** Upper bound on WorkManager retry attempts so failed uploads do not resend forever. */
+        const val MAX_RETRY_ATTEMPTS = 5
     }
 
     override suspend fun doWork(): Result {
         val path = inputData.getString(KEY_AUDIO_FILE_PATH) ?: return Result.failure(
             Data.Builder().putString(KEY_RESULT_ERROR, "Missing audio file path.").build()
         )
+
+        if (runAttemptCount >= MAX_RETRY_ATTEMPTS) {
+            File(path).let { FileCacheManager(applicationContext).deleteFile(it) }
+            return Result.failure(
+                Data.Builder().putString(KEY_RESULT_ERROR, "Retry attempts exhausted.").build()
+            )
+        }
         val model = inputData.getString(KEY_MODEL) ?: "whisper-large-v3-turbo"
         val language = inputData.getString(KEY_LANGUAGE)
 

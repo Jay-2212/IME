@@ -61,6 +61,29 @@ class GroqRepositoryTranscribeTest {
     }
 
     @Test
+    fun `transcribe maps unmapped error code to a generic message without leaking raw provider body`() = runBlocking {
+        val api = FakeGroqApiService(
+            transcribeCall = {
+                Response.error(
+                    418,
+                    """{"error":{"message":"internal upstream host db-shard-7 unreachable, trace=8f2a"}}"""
+                        .toResponseBody("application/json".toMediaType())
+                )
+            }
+        )
+        val file = createTempAudioFile()
+        val repository = buildRepository(api)
+
+        val result = repository.transcribe(file, shouldQueueOnNetworkFailure = false)
+
+        assertTrue(result is TranscriptionResult.Failure)
+        val message = (result as TranscriptionResult.Failure).message
+        assertEquals("Unexpected error (418).", message)
+        assertFalse(message.contains("db-shard-7"))
+        assertFalse(message.contains("trace="))
+    }
+
+    @Test
     fun `transcribe queues when offline and keeps file for worker`() = runBlocking {
         val api = FakeGroqApiService(
             transcribeCall = {
