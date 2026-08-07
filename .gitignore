@@ -20,6 +20,10 @@ build/
 *.jks
 *.keystore
 
+# Locally built release artifacts (published only as GitHub Release assets)
+release-artifacts/
+*.apk
+
 # Environment / secret files
 .env
 local.env
